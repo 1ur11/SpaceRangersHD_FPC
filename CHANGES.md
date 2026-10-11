@@ -100,7 +100,8 @@ port, and the source files that implement them.
   `DiskPackEntrySize` at 158 bytes while allowing native pointers in memory. Read-only
   packages are supported; WASI uses its descriptor-close API. Per-entry next-block
   offsets avoid rescanning compressed chains during sequential reads; random/interleaved
-  access still seeks correctly. This cache does not alter package or save formats.
+  access still seeks correctly. Failed seeks and incomplete block headers return a read
+  failure. This cache does not alter package or save formats.
 - **Compression formats.** `source/graphics/EC_OKGF.pas` implements ZL01 buffer
   compression and ZL02 package-block decoding with Pascal zlib. Original headers,
   compression levels, size limits, decoded-length checks and the header-only size query
@@ -208,6 +209,20 @@ Applying the setting reloads the interface.
 
 ## Preserved gameplay quirks and targeted corrections
 
+- **Native correctness fixes.** Surface-loot clearing stays within its arrays while
+  explicitly retaining the original eight occupancy resets that affect duplicate
+  placement. Captain portraits retain native zero initialization and player exclusion;
+  government portraits keep the original selection when multiple candidates exist and
+  fall back to the first written face (or zero) for incomplete configurations. Satellite
+  markers wrap exact trajectory endpoints. Empty planet filters accept all planets, and named
+  state changes reject empty state lists. See `aPlanet.pas`, `aShip.pas`, `fPlanetNO.pas`
+  and `aScriptFun.pas`.
+- **Undefined UI and arcade values.** Buttons without normal artwork start sizing at
+  zero. Unsupported CenterFill visual-center queries return zero before allocating or
+  changing bounds, matching the drawing path's lack of CenterFill support. Arcade
+  reflection no longer passes an always-zero heading output that was unwritten with no
+  stop lines; ordinary bearing wrapping remains. Unreferenced native stack placeholders
+  in the touched routines were removed.
 - **Shop quotas.** `LegacyPlanetShopQuota` in `source/game/aPlanet.pas` replaces reads
   past the race table with explicit next-race/station accesses. Weapon-subtype counting,
   offer selection and RNG consumption remain unchanged.

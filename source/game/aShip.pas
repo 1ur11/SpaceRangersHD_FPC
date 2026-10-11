@@ -1178,7 +1178,6 @@ var
   Series: TDominatorSeries;
   SourceId: Cardinal;
   Info: PCustomShipInfo;
-  Reserved: array[0..3] of Byte; // Native unreferenced slot before managed cleanup temporaries.
 begin
   Buffer.AddDWord(Id);
   Buffer.AddWideStringZ(Name);
@@ -3164,6 +3163,9 @@ begin
   Owner := RaceToOwner(PilotRace);
   if PortraitFaceId < 0 then
   begin
+    // Native $750A43 zeroed both arrays, including the no-candidate case.
+    FillChar(Faces, SizeOf(Faces), 0);
+    FillChar(Usage, SizeOf(Usage), 0);
     if TypeId = stRanger then
       Role := 'R'
     else if TypeId = stWarrior then
@@ -4286,13 +4288,11 @@ const
   NoDamageFlags = [];
 var
   I, J: Integer;
-  Reserved: Integer; { Native keeps an unused scalar between the loop indices and damage local. }
   AdjustedDamage, EngineLoss, DropCount, MinimumPriority, MaximumPriority: Integer;
   DamageValue, Wear, DropRoll: Single;
   Nodes: TProtoplasm;
   Debris: TUselessItem;
   Item: TItem;
-  UnusedText: WideString; { Native initializes/finalizes this otherwise unused managed local. }
   Module: TMicroModule;
   Cistern: TCistern;
   Event: TGalaxyEvent;
@@ -11589,9 +11589,6 @@ var
   RestoreStock, GeneratedBatch, DifferentHullGraph, UseMoney: Boolean;
   SavedNextItemId: Cardinal;
   Bought: Boolean;
-  UnusedNativeFrame:
-      array[0..7] of
-          Byte; // EBP-$74..-$6D are never accessed in the native frame; original local types are unknown.
 
   function SelectReplacedWeapon: TWeapon; { Caller-popped static link; ship -4. Selects the lowest evaluated weapon when all slots are occupied. }
   var
@@ -18088,8 +18085,6 @@ var
   Binding: TScriptShip;
   SavedScript: TScript;
   Stage: Integer;
-  Reserved:
-      array[0..7] of Byte; // Native keeps eight unused bytes before backend string temporaries.
 begin
   Stage := 0;
   if (ActionType = satOnLeavingForm) and (TalkScreen.ParentLoop = nil) then

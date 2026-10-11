@@ -2600,33 +2600,28 @@ begin
   for I := 0 to Count - 1 do
   begin
     Planet := TPlanet(Star.Planets[I]);
-    // Native $6099D1 preserves J for an empty filter string.
-    // No earlier write initializes [EBP-$2C]; empty filters use that incoming value.
-    // $609AC2 exhausts to FilterCount and accepts; Break retains a rejecting filter.
-    if FilterCount > 0 then
+    // Native $609AC2 exhausts to FilterCount; define empty filters as accept-all.
+    J := 0;
+    while J < FilterCount do
     begin
-      J := 0;
-      while J < FilterCount do
-      begin
-        Filter := ExtractDelimitedPartW(Filters, J, ',');
-        if (Filter = 'NotMaloc') and (Planet.OwnerId = oiMaloc) then
-          Break;
-        if (Filter = 'NotPeleng') and (Planet.OwnerId = oiPeleng) then
-          Break;
-        if (Filter = 'NotPeople') and (Planet.OwnerId = oiHuman) then
-          Break;
-        if (Filter = 'NotFei') and (Planet.OwnerId = oiFeyan) then
-          Break;
-        if (Filter = 'NotGaal') and (Planet.OwnerId = oiGaal) then
-          Break;
-        if (Filter = 'NotKling') and (Planet.OwnerId = oiDominator) then
-          Break;
-        if (Filter = 'NotPirateClan') and (Planet.OwnerId = oiPirate) then
-          Break;
-        if (Filter = 'NotNone') and (Planet.OwnerId = oiUninhabited) then
-          Break;
-        Inc(J);
-      end;
+      Filter := ExtractDelimitedPartW(Filters, J, ',');
+      if (Filter = 'NotMaloc') and (Planet.OwnerId = oiMaloc) then
+        Break;
+      if (Filter = 'NotPeleng') and (Planet.OwnerId = oiPeleng) then
+        Break;
+      if (Filter = 'NotPeople') and (Planet.OwnerId = oiHuman) then
+        Break;
+      if (Filter = 'NotFei') and (Planet.OwnerId = oiFeyan) then
+        Break;
+      if (Filter = 'NotGaal') and (Planet.OwnerId = oiGaal) then
+        Break;
+      if (Filter = 'NotKling') and (Planet.OwnerId = oiDominator) then
+        Break;
+      if (Filter = 'NotPirateClan') and (Planet.OwnerId = oiPirate) then
+        Break;
+      if (Filter = 'NotNone') and (Planet.OwnerId = oiUninhabited) then
+        Break;
+      Inc(J);
     end;
     if J >= FilterCount then
       Planets.Add(Planet);
@@ -3490,18 +3485,13 @@ begin
   else
   begin
     StateCount := CurrentScript.States.Count;
-    // Native $60C3AA leaves Index untouched when the state list is empty.
-    // Its string-argument path has no earlier write to the native [EBP-$10] slot.
-    // $60C3E6 exhausts to StateCount (the error path); Break retains a matching state.
-    if StateCount > 0 then
+    // Native $60C3E6 exhausts to StateCount; an empty list must do so too.
+    Index := 0;
+    while Index < StateCount do
     begin
-      Index := 0;
-      while Index < StateCount do
-      begin
-        if TScriptState(CurrentScript.States[Index]).Name = av[1].GetString then
-          Break;
-        Inc(Index);
-      end;
+      if TScriptState(CurrentScript.States[Index]).Name = av[1].GetString then
+        Break;
+      Inc(Index);
     end;
     if Index >= CurrentScript.States.Count then
       raise Exception.Create('Error.Script ChangeState ' + av[1].GetString);

@@ -913,7 +913,7 @@ begin
                 - Trajectories[TrajectoryIndex][0].Position.X);
   if X < Trajectories[TrajectoryIndex][0].Position.X then
     X := Trajectories[TrajectoryIndex][0].Position.X;
-  for I := 0 to TrajectoryPointCounts[TrajectoryIndex] - 1 do
+  for I := 0 to TrajectoryPointCounts[TrajectoryIndex] - 2 do
     if (X >= Trajectories[TrajectoryIndex][I].Position.X)
         and (X < Trajectories[TrajectoryIndex][I + 1].Position.X) then
     begin
@@ -944,14 +944,15 @@ var
   X, Distance, DeltaX, DeltaY: Single;
 begin
   X := Point.X;
-  while X > Trajectories[TrajectoryIndex][TrajectoryPointCounts[TrajectoryIndex] - 1].Position.X do
+  // Native $7E838F missed equality; wrap as ProjectPointOntoTrajectory does.
+  while X >= Trajectories[TrajectoryIndex][TrajectoryPointCounts[TrajectoryIndex] - 1].Position.X do
     X :=
         X
             - (Trajectories[TrajectoryIndex][TrajectoryPointCounts[TrajectoryIndex] - 1].Position.X
                 - Trajectories[TrajectoryIndex][0].Position.X);
   if X < Trajectories[TrajectoryIndex][0].Position.X then
     X := Trajectories[TrajectoryIndex][0].Position.X;
-  for I := 0 to TrajectoryPointCounts[TrajectoryIndex] - 1 do
+  for I := 0 to TrajectoryPointCounts[TrajectoryIndex] - 2 do
     if (X >= Trajectories[TrajectoryIndex][I].Position.X)
         and (X < Trajectories[TrajectoryIndex][I + 1].Position.X) then
     begin
@@ -1825,7 +1826,6 @@ const
 var
   Equipment: TEquipment;
   BarWidth, CapWidth, MinimumWidth: Integer;
-  Reserved7C, Reserved80, Reserved84: Integer; // Unused native stack locals.
 begin
   if Item = HoveredItem then
     Exit;

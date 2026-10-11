@@ -343,8 +343,7 @@ procedure TPlanet.InitGenerated(
     Star: TStar;
     TotalPlanetCount, InhabitedCountOrSpecialMode: Integer
 );
-{ Self is added to Star.Planets by the caller. UnusedRadius and UnusedItem
-  retain unreferenced native frame slots, as in InitGeneratedUninhabited. }
+{ Self is added to Star.Planets by the caller. }
 var
   OtherPlanet, PreviousPlanet: TPlanet;
   Invention: TPlanetInvention;
@@ -352,7 +351,7 @@ var
   Quantity, Count, I, Part, LeastOwnerPlanetCount, ExistingRing, ModuleIndex: Integer;
   SavedRandomState: Cardinal;
   EconomyRoll: Integer;
-  PreviousExtent, SatelliteRadius, UnusedRadius, MinOrbitRadius, MaxOrbitRadius: Double;
+  PreviousExtent, SatelliteRadius, MinOrbitRadius, MaxOrbitRadius: Double;
   GovernmentCandidate: TPlanetGovernment;
   ItemOwner, OwnerLoop: TOwnerId;
   BlockName: WideString;
@@ -365,7 +364,6 @@ var
   GovernmentRoll, RingKind: Byte;
   TemplateAvailable, AllowRing, IsSolar: Boolean;
   HullType: THullType;
-  UnusedItem: TItem;
   Loot: TEquipmentWithActCode;
   Module: TMicroModule;
   Cistern: TCistern;
@@ -1345,31 +1343,23 @@ end;
 
 procedure TPlanet.InitGeneratedUninhabited(Star: TStar);
 { Requires an existing planet in Star.Planets: native orbit spacing reads the
-  final entry before any empty-list check. Self is registered by the caller.
-  The unused locals preserve observed O- frame gaps; their original names and
-  scalar types are unknown. UnusedText is different: native initialization and
-  finalization explicitly identify that unused slot as a managed WideString. }
+  final entry before any empty-list check. Self is registered by the caller. }
 var
-  UnusedPlanet, PreviousPlanet: TPlanet;
+  PreviousPlanet: TPlanet;
   Invention: TPlanetInvention;
   Good: Byte;
-  Quantity, Count, I, Part, UnusedCount, ExistingRing, ModuleIndex: Integer;
+  Quantity, Count, I, Part, ExistingRing, ModuleIndex: Integer;
   SavedRandomState: Cardinal;
-  UnusedOrbit, PreviousExtent, SatelliteRadius, UnusedRadius, MinOrbitRadius, MaxOrbitRadius:
-      Double;
-  UnusedOwner, ItemOwner: TOwnerId;
-  UnusedText: WideString;
+  PreviousExtent, SatelliteRadius, MinOrbitRadius, MaxOrbitRadius: Double;
+  ItemOwner: TOwnerId;
   Satellite: TSputnik;
   SatelliteCount: Integer;
   SatelliteConfig: TBlockParEC;
   Item: TEquipment;
   ItemType: TItemType;
   Series: Integer;
-  UnusedRingFlags: array[0..2] of Byte;
   AllowRing: Boolean;
-  UnusedHullFlag: Byte;
   HullType: THullType;
-  UnusedItem: TItem;
   Loot: TEquipmentWithActCode;
   Module: TMicroModule;
   Cistern: TCistern;
@@ -3561,10 +3551,9 @@ end;
 procedure TPlanet.InitializeFilmState(StepIndex: Integer; RecordFilm: Boolean);
 var
   Satellite: TSputnik;
-  Index, Reserved, Count, Icon, Stage: Integer;
+  Index, Count, Icon, Stage: Integer;
 begin
   Stage := 0;
-  Reserved := 4;
   try
     LastFilmPosition := TruncatePointF(GetPosition);
     Stage := 1;
@@ -4388,6 +4377,7 @@ var
   Faces: array[0..50] of Integer;
 begin
   FaceCount := 0;
+  Faces[0] := 0;
   Block := GameDataConfig.GetBlockByPath('StyleFace' + aConst.OwnerInfo[OwnerId].InternalName);
   Count := Block.GetParamCount;
   for Index := 0 to Count - 1 do
@@ -4397,8 +4387,11 @@ begin
       if (GetPlayer = nil) or (GetPlayer.PortraitFaceId <> Faces[FaceCount]) then
         Inc(FaceCount);
     end;
-  // Native selection deliberately excludes the last candidate and assumes at least two.
-  Index := Faces[Integer(GenerationSeed) mod (FaceCount - 1)];
+  // Native $78F08B excludes the last candidate; retain that when there is a choice.
+  if FaceCount > 1 then
+    Index := Faces[Integer(GenerationSeed) mod (FaceCount - 1)]
+  else
+    Index := Faces[0];
   Result :=
       'Bm.Captain.'
           + GiResourceSuffix
@@ -4621,10 +4614,7 @@ begin
         SurfaceLootEntries[j] := First;
       end;
     end;
-  // These native inclusive bounds overrun the 14-by-7 arrays; retained exactly.
-  for Y := 0 to 7 do
-    for X := 0 to 14 do
-      Occupied[X, Y] := False;
+  FillChar(Occupied, SizeOf(Occupied), 0);
   for i := 0 to SurfaceLootEntries.Count - 1 do
   begin
     First := SurfaceLootEntries[i];
@@ -4638,9 +4628,11 @@ begin
       Second := SurfaceLootEntries[j];
       if (First.GridX = Second.GridX) and (First.GridY = Second.GridY) then
       begin
-        for Y := 0 to 7 do
-          for X := 0 to 14 do
-            Visited[X, Y] := False;
+        FillChar(Visited, SizeOf(Visited), 0);
+        // Native $79003D clearing also reset these eight adjacent Occupied bytes.
+        // Preserve duplicate-loot placement without depending on stack layout.
+        FillChar(Occupied[0], SizeOf(Occupied[0]), 0);
+        Occupied[1, 0] := False;
         Queue[0].X := Second.GridX;
         Queue[0].Y := Second.GridY;
         Visited[Queue[0].X, Queue[0].Y] := True;
@@ -6478,15 +6470,14 @@ begin
 end;
 
 function TPlanet.BuildGovernmentGreeting: WideString;
-{ UnusedText is explicitly initialized/finalized by the native routine.
-  PirateClanInCurStar, PirateClanInToStar and ToStarControlByPirates are loaded
+{ PirateClanInCurStar, PirateClanInToStar and ToStarControlByPirates are loaded
   configuration fields but are not consulted here; population tests use only
   the five ordinary ship types. }
 var
   Rules: array of TGovGreetingsInfo;
   HighIndex: Integer;
   SwapA, SwapB: TGovGreetingsInfo;
-  UnusedText, Greeting: WideString;
+  Greeting: WideString;
   Attempt, NearStarIndex, I, ShipCount, Minimum, RuleIndex, BestPriority, Priority: Integer;
   Good: Byte;
   Rejected, FoundPlanet: Boolean;
@@ -6516,7 +6507,6 @@ var
 
 begin
   Result := '';
-  UnusedText := '';
   BestPriority := -1;
   Priority := -1;
   CurrentStar.GetControlPresence(
