@@ -6979,7 +6979,7 @@ begin
       else if IsGoods then
       begin
         { Native Count-mode goods handling reads the countable-item offset, then
-          rescales Cost again below. Preserve both operations for byte matching. }
+          rescales Cost again below. Both rounded rescalings affect the result. }
         if (High(av) > 2) and (av[3].RealVType = vkString) and (av[3].GetString = 'Count') then
           Item.Cost := Round(Item.Cost * Value / Max(1, TCountableItem(Item).StackCount))
         else
@@ -12492,7 +12492,6 @@ var
   Star: TStar;
   Planet: TPlanet;
   Ship: TShip;
-  OwnerMask: TOwnerMask;
 
   procedure CheckShip(
       Ship: TShip
@@ -12573,9 +12572,7 @@ begin
     Mask := [stKling..stWarrior, rstRangerCenter..rstCustomStation];
   // Parsed by the native routine but never consulted.
   if (High(av) > 3) and (av[4].GetDword <> 0) then
-    Byte(OwnerMask) := av[4].GetDword
-  else
-    OwnerMask := [oiMaloc..oiPirate];
+    av[4].GetDword;
   IncludeScripted := False;
   if (High(av) > 4) and (av[5].GetInt <> 0) then
     IncludeScripted := True;
@@ -13734,7 +13731,7 @@ end;
 
 procedure SF_StarListToTransitPlanetList(av: array of TVarEC; code: TCodeEC);
 var
-  I, J, K, Unused, Count, DirectDistance, Detour, Limit, BaseDistance: Integer;
+  I, J, K, Count, DirectDistance, Detour, Limit, BaseDistance: Integer;
   Score, BestScore, Penalty: Double;
   Star, Origin, Destination: TStar;
   Planet, BestPlanet: TPlanet;
@@ -13773,7 +13770,6 @@ begin
             + Round(PointDistance(Star.Position, Origin.Position))
             - DirectDistance
             + BaseDistance;
-    Unused := 0;
     BestPlanet := nil;
     BestScore := 0;
     for J := 0 to Star.Planets.Count - 1 do
@@ -16920,14 +16916,13 @@ end;
 procedure SF_CountBox(av: array of TVarEC; code: TCodeEC);
 var
   Value: Integer;
-  Caption, Description: WideString;
   Minimum, Maximum, Limit, UnitValue, Available, TotalLimit: Integer;
 begin
   if High(av) < 4 then
     raise Exception.Create('Error.Script CountBox');
   // The native routine reads these strings here, then reads them again for the dialog call.
-  Caption := av[1].GetString;
-  Description := av[2].GetString;
+  av[1].GetString;
+  av[2].GetString;
   Minimum := av[3].GetInt;
   Maximum := av[4].GetInt;
   if High(av) > 4 then

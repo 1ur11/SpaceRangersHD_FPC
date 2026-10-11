@@ -6072,7 +6072,7 @@ end;
 function TPlanet.GenerateWeaponOffer(Ship: Pointer): TWeapon;
 var
   Target: TShip;
-  Attempts, MinLevel, MaxLevel, MinSize, MaxSize: Integer;
+  MinLevel, MaxLevel, MinSize, MaxSize: Integer;
   Available: TWeaponAvailabilityMask;
   Info: PWeaponInfo;
   ModuleIndex: Integer;
@@ -6091,50 +6091,44 @@ begin
   if (Target.TypeId in [stRanger, stPirate])
       and (OwnerId in aConst.PlanetOwnerMasks.PirateClan) then
     Available := Available + [aConst.OwnerWeaponAvailability[OwnerId]];
-  Attempts := 0;
-  if Attempts <= 100 then
+  Info := aGalaxy.Galaxy.SelectWeaponInfo(RandomState, Available, InventionLevels[piMainTech], 1);
+  AdvanceRandomSeed(RandomState);
+  // The native comparison has no rejecting branch, but both counts are called.
+  if not (Target.TypeId in [stRanger, stPirate]) and (Info.ShotType in [wstTorpedo..wstRocket]) then
+    if Target.CountDirectFireWeapons > Target.CountMissileWeapons then
+      ;
+  MinSize := System.Round(Info.AverageSize * aConst.EquipmentSizeFactors[5]);
+  MaxSize := System.Round(Info.AverageSize * aConst.EquipmentSizeFactors[1]);
+  if (Target is TWarrior) and ((Target as TWarrior).WarriorType = wtFlagship) then
   begin
-    Inc(Attempts);
-    Info := aGalaxy.Galaxy.SelectWeaponInfo(RandomState, Available, InventionLevels[piMainTech], 1);
-    AdvanceRandomSeed(RandomState);
-    // The native comparison has no rejecting branch, but both counts are called.
-    if not (Target.TypeId in [stRanger, stPirate])
-        and (Info.ShotType in [wstTorpedo..wstRocket]) then
-      if Target.CountDirectFireWeapons > Target.CountMissileWeapons then
-        ;
-    MinSize := System.Round(Info.AverageSize * aConst.EquipmentSizeFactors[5]);
-    MaxSize := System.Round(Info.AverageSize * aConst.EquipmentSizeFactors[1]);
-    if (Target is TWarrior) and ((Target as TWarrior).WarriorType = wtFlagship) then
-    begin
-      MinSize := MinSize * 2;
-      MaxSize := MaxSize * 2;
-    end;
-    MinLevel := 1;
-    MaxLevel := Min(InventionLevels[piMainTech], InventionLevels[Info.InventionIndex]);
-    if CurrentStar.Constellation.Id = 20 then
-      MaxLevel := Max(MaxLevel, Integer(aGalaxy.Galaxy.TechLevel));
-    MinLevel := Max(MinLevel, MaxLevel div 2 - 1);
-    Owner := RaceToOwner(RaceId);
-    if OwnerId = oiPirate then
-      Owner := oiPirate;
-    Result :=
-        CreateGeneratedWeapon(
-            Info,
-            NextRandomIntRange(MinSize, MaxSize, RandomState),
-            NextRandomIntRange(MinLevel, MaxLevel, RandomState),
-            Owner
-        );
-    if (Target is TWarrior) and ((Target as TWarrior).WarriorType = wtFlagship) then
-    begin
-      Result.DetailImprovement := 3;
-      Result.Improve(ikAny);
-    end
-    else if Target.CanGenerateMicroModuleForLoadout then
-    begin
-      ModuleIndex := SelectWeaponOfferSpecialMicroModule(Result);
-      if ModuleIndex >= 0 then
-        ApplySpecialMicroModule(ModuleIndex, Result);
-    end;
+    MinSize := MinSize * 2;
+    MaxSize := MaxSize * 2;
+  end;
+  MinLevel := 1;
+  MaxLevel := Min(InventionLevels[piMainTech], InventionLevels[Info.InventionIndex]);
+  if CurrentStar.Constellation.Id = 20 then
+    MaxLevel := Max(MaxLevel, Integer(aGalaxy.Galaxy.TechLevel));
+  MinLevel := Max(MinLevel, MaxLevel div 2 - 1);
+  Owner := RaceToOwner(RaceId);
+  if OwnerId = oiPirate then
+    Owner := oiPirate;
+  Result :=
+      CreateGeneratedWeapon(
+          Info,
+          NextRandomIntRange(MinSize, MaxSize, RandomState),
+          NextRandomIntRange(MinLevel, MaxLevel, RandomState),
+          Owner
+      );
+  if (Target is TWarrior) and ((Target as TWarrior).WarriorType = wtFlagship) then
+  begin
+    Result.DetailImprovement := 3;
+    Result.Improve(ikAny);
+  end
+  else if Target.CanGenerateMicroModuleForLoadout then
+  begin
+    ModuleIndex := SelectWeaponOfferSpecialMicroModule(Result);
+    if ModuleIndex >= 0 then
+      ApplySpecialMicroModule(ModuleIndex, Result);
   end;
 end;
 

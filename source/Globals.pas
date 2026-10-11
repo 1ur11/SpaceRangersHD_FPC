@@ -2728,14 +2728,10 @@ end;
 
 procedure HandleRuntimeExitCheck1;
 begin
-  if ExitScreenLoop then
-    ;
 end;
 
 procedure HandleRuntimeExitCheck2;
 begin
-  if ExitScreenLoop then
-    ;
 end;
 
 function ParseRobotMapRaceMask(Text: WideString): TOwnerMask;

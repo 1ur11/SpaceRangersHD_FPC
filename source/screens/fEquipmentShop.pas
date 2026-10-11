@@ -2044,9 +2044,6 @@ var
   DisplayKind: TKlingType;
   Series: TDominatorSeries;
   BarWidth, CapWidth, MinimumWidth: Integer;
-  UnusedNativeLocal:
-      array[0..7] of
-          Byte; { Eight unreferenced frame bytes precede the managed temporaries; original local type is unknown. }
 begin
   Window := Target.GetByName('InfoHull') as TWindowGI;
   TextLabel := Target.GetByName('InfoHullText') as TLabelGI;

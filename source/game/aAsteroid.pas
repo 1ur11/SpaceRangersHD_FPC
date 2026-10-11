@@ -153,7 +153,7 @@ end;
 
 procedure TAsteroid.Respawn;
 var
-  Angle, Radius, Speed, Reserved: Single; // Native reserves one additional scalar slot.
+  Angle, Radius, Speed: Single;
 begin
   Mass := 1000000;
   InverseMass := 1 / Mass;

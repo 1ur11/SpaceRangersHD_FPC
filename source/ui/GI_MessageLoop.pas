@@ -2439,9 +2439,6 @@ var
   NewOffset: TPoint;
   DX, DY, Scale: Double;
   TouchControl: TObjectGI;
-  // Native reserves twelve unreferenced bytes at EBP-$4C..EBP-$41.
-  // DCC32 O- allocates unused locals after live ones; original types are unknown.
-  UnusedLocals: array[0..11] of Byte;
 
   procedure ConvertMousePointToViewport; { Nested ProcessWindowMessage helper; scales or offsets its captured mouse point. }
   begin

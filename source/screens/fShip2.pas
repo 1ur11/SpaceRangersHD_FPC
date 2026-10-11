@@ -929,11 +929,8 @@ end;
 
 procedure TfShip2.InitializeLayout;
 var
-  Unused7C: Integer; // Native unused local at EBP-$7C, allocated after the live locals.
   I: Integer;
-  Unused0C: Integer; // Native unused local at EBP-$0C; original type and name are unknown.
   Column, Row: Integer;
-  Unused18: Integer;
   Panel: TPanelGI;
   Button: TGraphButtonGI;
 begin
@@ -1161,8 +1158,8 @@ end;
 
 procedure TfShip2.OnOpen;
 var
-  Reserved08, SlotCount: Integer;
-  PortraitPath, ReservedText: WideString;
+  SlotCount: Integer;
+  PortraitPath: WideString;
   I, J: Integer;
   Item: TItem;
   SavedFlag, ScriptChangedFlag: Boolean;
@@ -2511,7 +2508,6 @@ var
   I, Slot, SlotCount, DuplicateSlot, Column, Row: Integer;
   Item: TEquipment;
   Entry: TPlayerHoldUnit;
-  ReservedPoint: TPoint;
   Highlight, Boost: Boolean;
   SelectedType, InstalledType: TItemType;
   Artefact: TArtefact;
@@ -3084,7 +3080,6 @@ var
   I, TotalRepair: Integer;
   Equipment: TEquipment;
   OrdinaryShip: Boolean;
-  Unused60, Unused64: Integer; { Two native unused stack slots before managed temporaries. }
 
   procedure Skill(Index, BaseLevel, EffectiveLevel: Integer; CanTrain: Boolean);
   var
@@ -3895,7 +3890,6 @@ var
   Equipment: TEquipment;
   Entry, Swap: TPlayerHoldUnit;
   Stack: TCountableItem;
-  ReservedCisternFrom, ReservedCisternTo: TCistern;
   FuelFrom, FuelTo: TFuelTanks;
   Expanded, NeedsRefresh: Boolean;
   ActionResult: Integer;
@@ -7812,8 +7806,6 @@ var
   CenterX, CenterY: Boolean;
   InfoWindow: TWindowGI;
   Position, CellSize: TPoint;
-  Reserved70:
-      Int64; { Native frame retains an unused eight-byte slot before expression temporaries. }
 begin
   if KeepMobileTooltipVisible(ItemInfoWindow, ItemInfoHideTimer) then
     Exit;
@@ -8189,7 +8181,7 @@ procedure TfShip2.LayoutObjectInfo(
 var
   TargetRatio, Ratio: Single;
   TextSize, WindowSize, TargetSize: TPoint;
-  Attempts, Reserved: Integer; { Native frame retains one unused local. }
+  Attempts: Integer;
   Borders: Types.TRect;
   LeftWidth, RightWidth, TotalHeight, EmblemMargin, CenterX, CenterY, RowY: Integer;
 
@@ -8319,7 +8311,6 @@ var
   Text: WideString;
   SpecialHull: Boolean;
   BarWidth, CapWidth, MinimumWidth: Integer;
-  Reserved9C, ReservedA0, ReservedA4: Integer;
 begin
   Equipment := Item as TEquipment;
   if Equipment = nil then
@@ -10150,9 +10141,6 @@ end;
 
 function RunShipEquipment(ParentLoop: TMessageLoopGI): Boolean;
 var
-  CursorAlignment:
-      array[0..2] of
-          Byte; // Native three unused bytes between the Boolean result and packed cursor record.
   State: TCursorStateGI;
 begin
   ParentLoop.RootUiObject.OnModalSuspend;

@@ -2321,8 +2321,6 @@ var
   Current, Candidate, Previous, StartPoint, EndPoint: TPoint;
   Position: TPointF;
   Changed, Retry: Boolean;
-  UnusedLocal:
-      Integer; // Native reserves an unused dword before BlockCount; original name/type unknown.
   BlockCount, Weight: Integer;
   Config, Selected: TBlockParEC;
   Exits: array[-1..2] of Integer;
@@ -2802,8 +2800,6 @@ var
   PendingLoads: TList;
   Remaining: Integer;
   ColorData: PArcadeMapColorHeader;
-  UnusedLocal:
-      Integer; // Native unused dword before compiler temporaries; original name/type unknown.
 begin
   CloseVictory(nil, 0);
   GetByName('PRight').SetActive(False);
@@ -3170,11 +3166,8 @@ var
   LabelControl, DateLabel: TLabelGI;
   CameraPos, TargetPos, UpVector: TVector3D;
   View, Rotation: TMatrix4D;
-  UnusedBeforeBearing:
-      array[0..7] of Byte; // Native unused bytes between the matrix and bearing records.
   Bearing: TSphericalBearingDistance;
   State: TSphericalBearingState;
-  UnusedAfterState: array[0..3] of Byte; // Native unused bytes before backend temporaries.
 begin
   Stage := 0;
   Obj := nil;
@@ -4154,9 +4147,6 @@ var
   StatusScale: Single;
   Ship: TabShipAI;
   Item: TItem;
-  UnusedRecord: record
-    Reserved: Integer;
-  end; // Native unused four-byte slot before the temporary point records.
 begin
   if (PlayerArcadeShip = nil)
       or ((GetPlayer <> nil) and (GetPlayer.CountActiveArtefacts(t_ArtefactScaner) <= 0))

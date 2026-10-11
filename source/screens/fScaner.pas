@@ -215,8 +215,6 @@ var
   I, SlotCount, J, MaximumSlots: Integer;
   Ranger: TRanger;
   Stage: Integer;
-  ReservedText:
-      WideString; // Native frame initializes and finalizes this unreferenced managed slot.
 begin
   Stage := 0;
   try

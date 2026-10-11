@@ -3154,8 +3154,7 @@ var
   Candidates: TList;
   I, Count, J, SubCount, K: Integer;
   Balance, Radius: Single;
-  // The native frame retains and finalizes an otherwise unused WideString at EBP-$38.
-  Text, UnusedText, ErrorText: WideString;
+  Text, ErrorText: WideString;
   Constellation: TScriptConstellation;
   Star: TScriptStar;
   PlanetBinding: PScriptPlanetBinding;
@@ -4968,14 +4967,14 @@ end;
 function CompileScriptText(SourceText: WideString): TCodeEC;
 var
   Analyzer: TCodeAnalyzerEC;
-  ErrorText, DelimiterError: WideString;
+  ErrorText: WideString;
 begin
   Analyzer := TCodeAnalyzerEC.Create;
   Analyzer.Tokenize(SourceText);
   Analyzer.RemoveComments;
   Analyzer.RemoveNewlines;
   Analyzer.RemoveWhitespace;
-  DelimiterError := Analyzer.ValidateDelimiters;
+  Analyzer.ValidateDelimiters;
   Result := TCodeEC.Create;
   Result.Compile(Analyzer, nil, nil, nil, nil, ErrorText);
   if ErrorText <> '' then

@@ -1825,9 +1825,6 @@ begin
               = 0)
           and (DiseaseImmunity > 0) then
         Dec(DiseaseImmunity);
-      { Native O- code retains this unreachable lower clamp on the byte field. }
-      if DiseaseImmunity < 0 then
-        DiseaseImmunity := 0;
       if DiseaseImmunity > 100 then
         DiseaseImmunity := 100;
       if not InNormalSpace then
@@ -2453,9 +2450,7 @@ function TPlayer.FindProfitableTradeRoute(
 ): Boolean;
 var
   I, J, JumpRange: Integer;
-  UnusedRouteLocal1, UnusedRouteLocal2, UnusedRouteLocal3: Integer;
   BuyPlanet, SellPlanet, BestBuyPlanet, BestSellPlanet: TPlanet;
-  UnusedGoodsLocal1, UnusedGoodsLocal2: Integer;
   BestGood, Kind: Byte;
   Score, BestScore: Single;
 begin

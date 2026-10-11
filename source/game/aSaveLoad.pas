@@ -456,9 +456,6 @@ begin
     Buffer.GetByte;
     Buffer.GetBoolean;
     PlayerStarDayPrepared := Buffer.GetBoolean;
-    if PlayerStarDayPrepared then
-    begin
-    end;
     ShownPlayerTips := Buffer.GetUInt32;
     Buffer.GetInt32;
     Count := Buffer.GetInt32;

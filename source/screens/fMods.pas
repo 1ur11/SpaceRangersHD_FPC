@@ -108,13 +108,10 @@ var
   Weight,
   CandidateWeight,
   BestWeight,
-  Reserved28,
   BestIndex,
-  Reserved30,
   GroupCount,
   AvailableTabs: Integer;
   GroupName, SectionName: WideString;
-  Reserved44: Integer;
   Button: TGraphButtonGI;
   ScrollPanel: TPanelScrollBarGI;
   Info, Dependency: TModInfo;
@@ -179,7 +176,7 @@ var
     Switch.UserIndex := Ord(Info.Selected);
     Switch.SetSize(Switch.GetContentSize);
     ButtonWidth := Switch.ClientSize.X;
-    Switch.SetPosition(Point(TabPanels[Tab].ClientSize.X - ButtonWidth - 0, TabHeights[Tab] + 10));
+    Switch.SetPosition(Point(TabPanels[Tab].ClientSize.X - ButtonWidth, TabHeights[Tab] + 10));
     Switch.SetImageKindY(ikyCenter);
     Switch.LeftButtonDownCallback := SwitchMouseDown;
     Switch.MouseEnterCallback := SwitchMouseEnter;
@@ -191,8 +188,7 @@ var
     InfoButton.SetImageDownPath('GI,Bm.MsgPlayer.2UserD');
     InfoButton.SetSize(InfoButton.GetMaxStateImageSize);
     Inc(ButtonWidth, InfoButton.ClientSize.X);
-    InfoButton
-        .SetPosition(Point(TabPanels[Tab].ClientSize.X - ButtonWidth - 0, TabHeights[Tab] + 9));
+    InfoButton.SetPosition(Point(TabPanels[Tab].ClientSize.X - ButtonWidth, TabHeights[Tab] + 9));
     InfoButton.UpCallback := ShowInfoClick;
     InfoButton.UserValue := PtrInt(Info);
     Switch.UserData := PtrInt(TGraphButtonGI.Create(TabPanels[Tab]));

@@ -436,7 +436,6 @@ begin
 end;
 
 var
-  ReservedInfoText: WideString = '';
   InfoNewsAnimationNames: array[0..19] of WideString = (
       'a',
       'b',
@@ -1230,7 +1229,6 @@ procedure TfInfo.ShowNews;
 var
   I: Integer;
   Entry: PPlanetNewsEntry;
-  Source: WideString;
 begin
   InfoPanel.SetActive(True);
   InfoPanel.VerticalScrollBar.SetActive(True);
@@ -1246,9 +1244,8 @@ begin
   for I := Galaxy.PlanetNews.Count - 1 downto 0 do
   begin
     Entry := Galaxy.PlanetNews[I];
-    // Native retains this empty local string in the heading expression.
     AddInfoHeading(
-        WrapTextInColor(Galaxy.FormatTurnDate(Entry.Turn) + Source, TextHighlightColorTag),
+        WrapTextInColor(Galaxy.FormatTurnDate(Entry.Turn), TextHighlightColorTag),
         WrapTextInColor(Galaxy.FormatTurnDate(Entry.Turn), TextHighlightColorTag)
             + #13#10
             + ' '

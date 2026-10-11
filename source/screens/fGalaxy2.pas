@@ -245,11 +245,8 @@ var
   HoleImage: TImageGI;
   BufferOffset: TPoint;
   Hole, SelectedHole: THole;
-  { No native accesses remain to these stack slots. }
-  Reserved84, Reserved88, Reserved8C, Reserved90: Integer;
   ForceText, BossText: WideString;
   CoalitionCount, BlazerCount, KellerCount, TerronCount: Integer;
-  ReservedAC: Integer;
   PirateCount, CustomCount, OtherCount: Integer;
   Strength: Extended;
   CoalitionPresent, DominatorsPresent, PiratesPresent, CustomPresent, PlayerPartyPresent: Boolean;
@@ -1563,7 +1560,6 @@ end;
 procedure TfGalaxy2.ShowStarInfo(Star: TStar);
 var
   InfoPanel: TWindowGI;
-  UnusedControl: TObjectGI; // Native O- frame retains this unused slot at -$10.
   Owner: TPanelGI;
   Objects: TList;
   I, J, RowHeight, IconX: Integer;
@@ -2661,7 +2657,6 @@ end;
 
 function RunGalaxyMap(ParentLoop: TMessageLoopGI): Boolean;
 var
-  CursorAlignment: array[0..2] of Byte;
   State: TCursorStateGI;
 begin
   ParentLoop.RootUiObject.OnModalSuspend;

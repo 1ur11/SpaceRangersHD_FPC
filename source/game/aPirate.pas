@@ -716,7 +716,7 @@ function TPirate.SelectServicePlanet: TPlanet;
 begin
   if PlanetQueue.Count > 0 then
   begin
-    Result := TList(PtrInt(PlanetQueue) + 0)[0];
+    Result := PlanetQueue[0];
     if (GetFuelTanks.Fuel < GetFuelTanks.Capacity)
         or HasHullDamageOrBrokenEquippedItems
         or (NextRandomUnitFloat(RandomState) < 0.1) then
@@ -2253,8 +2253,6 @@ function TPirate.BuildAttackRequestResponse(
   end;
 
   function FriendsPreferred: Boolean; { Nested helper with caller-popped static link. }
-  var
-    UnusedLocal: Integer; // Native gap before the floating-point temporaries.
   begin
     Result :=
         Cardinal(RelationToShip(Target))
@@ -2915,7 +2913,7 @@ begin
     DisruptionFactor :=
         DisruptionFactor
             + CountActiveArtefacts(t_ArtDecelerate)
-                * ((Ord(CanBoostArtefact(t_ArtDecelerate, Weapon, False)) * 1) + 1);
+                * (Ord(CanBoostArtefact(t_ArtDecelerate, Weapon, False)) + 1);
   TotalDisruption := DisruptionFactor;
   for I := 1 to CountEquippedWeapons do
   begin
@@ -2927,7 +2925,7 @@ begin
       TotalDisruption :=
           TotalDisruption
               + CountActiveArtefacts(t_ArtDecelerate)
-                  * ((Ord(CanBoostArtefact(t_ArtDecelerate, Weapon, False)) * 1) + 1);
+                  * (Ord(CanBoostArtefact(t_ArtDecelerate, Weapon, False)) + 1);
   end;
   DisruptionFactor :=
       DisruptionFactor / Max(TotalDisruption, 1) * RemapClamped(TotalDisruption, 1, 3, 1, 2);

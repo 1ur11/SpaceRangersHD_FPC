@@ -5027,8 +5027,6 @@ end;
 procedure TWeapon.ReplaceInfoTokens(var Text: WideString; ColorTag: WideString; Ship: Pointer);
 var
   BonusText: WideString;
-  UnusedNativeText:
-      WideString; // Native initializes/finalizes this extra string slot without reading it.
   ModuleBonus, EffectiveBonus, BaseDamage, I: Integer;
   DamageClass: TWeaponDamageClass;
   ExpectedRange, CurrentRange, BaseRange, ExpectedDamage: Integer;

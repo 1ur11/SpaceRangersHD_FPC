@@ -248,6 +248,10 @@ Applying the setting reloads the interface.
 
 ## Removed and restricted legacy code
 
+- Decompiler frame padding, unreferenced locals and strings, dead counters and
+  unreachable statements were removed. Integer expressions used only for byte
+  matching were simplified. RNG calls and their order, floating-point rounding
+  operations, observable getter calls, callback signatures and saved layouts remain.
 - Empty placeholder units, unused registry/Direct3D helpers, the inactive Delphi
   exception hook and VFW import were removed. Redundant nonvirtual hooks and dead
   statements were trimmed while retaining required overrides and RNG calls.

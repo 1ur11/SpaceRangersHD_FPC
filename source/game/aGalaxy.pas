@@ -1642,7 +1642,6 @@ var
   I, J, K, Count, TemplateIndex, ShipCount: Integer;
   X, Y: Single;
   Star: TStar;
-  Planet: TPlanet;
   Ship: TShip;
   OldQuest: PPlayerOldQuest;
   Gate: PJumpGateEntry;
@@ -4244,7 +4243,6 @@ var
   Path: TPath;
   Storage: PStorageEntry;
   Player: TPlayer;
-  UnusedLocalBytes: array[0..7] of Byte; // Native frame retains eight unreferenced bytes.
 
   function NextStateXorMask:
       Cardinal; { Park-Miller state at ParentFrame-4; returns the updated state minus one. }
@@ -4664,9 +4662,6 @@ end;
 procedure TGalaxy.CheckIntegrityChecksum(ErrorCode: Integer);
 var
   ResourceError: Integer;
-  UnusedNativeFrame:
-      array[0..11] of
-          Byte; // Native reserves these bytes without accessing them; original type is unknown.
 begin
   WaitForTurnCalculationUI;
   if GR_Main.CCInterface.GetIntegrityError = 0 then
@@ -4690,9 +4685,6 @@ end;
 procedure TGalaxy.CheckIntegrityChecksumAndSetStatus(StatusCode: Integer);
 var
   ResourceError: Integer;
-  UnusedNativeFrame:
-      array[0..11] of
-          Byte; // Native reserves these bytes without accessing them; original type is unknown.
 begin
   WaitForTurnCalculationUI;
   if GR_Main.CCInterface.GetIntegrityError = 0 then
@@ -5165,14 +5157,12 @@ var
   Drop: PMovingDropItemEntry;
   Missile: TMissile;
   Extension, Prefix: WideString;
-  Reserved1, Reserved2, Reserved3: Integer;
 
   procedure CheckModuleCRC(
       ExpectedCRC: Cardinal
   ); { Caller-popped static link; filename at -4, star at -8. Updates global integrity status on mismatch. }
   var
     Data: TBufEC;
-    Unused: Integer;
   begin
     Data := TBufEC.Create;
     Data.LoadFromWideFilePath(PWideChar(FileName));
@@ -5180,7 +5170,6 @@ var
     Data.AddIntegerValue(1052456);
     Data.AddIntegerValue(-346336);
     Data.AddIntegerValue(11111);
-    Unused := 4;
     if Data.ComputeCrc32 <> ExpectedCRC then
     begin
       ModuleCrcIntegrityStatus := mcsMismatch;
@@ -5836,11 +5825,10 @@ end;
 function TStar.DropMinerals(Quantity: Integer; Position: TPointF; Seed: Cardinal): Integer;
 var
   Angle, AngleStep, Radius, Jitter: Single;
-  DropCount, DropQuantity, I, MaximumDrops: Integer;
+  DropCount, DropQuantity, I: Integer;
   Goods: TGoods;
   Entry: PMovingDropItemEntry;
 begin
-  MaximumDrops := 4; { Written but not read in the native body. }
   try
     Result := 0;
     Angle := HeadingDegreesToRadians(SeededRandomIntRange(0, 360, Seed));
@@ -7137,9 +7125,9 @@ begin
                     Step * Sample.Direction.Y + PreviousPoint.Y
                 );
             if (Point.X < 0)
-                or (GalaxySizeX * 1 <= Point.X)
+                or (GalaxySizeX <= Point.X)
                 or (Point.Y < 0)
-                or (GalaxySizeY * 1 <= Point.Y) then
+                or (GalaxySizeY <= Point.Y) then
               Point := PreviousPoint;
             Sample.Position := Point;
             Sample.GrowthStopped := not WorkingPolygon.AssignGroupAtPoint(Point, I);
@@ -7172,33 +7160,24 @@ end;
 
 procedure TGalaxy.GenerateGalaxyLayout(PlayerRace: TOwnerId);
 var
-  I, J, UnusedIndex, K, FirstIndex, SecondIndex, N, Attempts: Integer;
+  I, J, K, FirstIndex, SecondIndex, N, Attempts: Integer;
   Star, OtherStar, SecondStar: TStar;
   InvalidLayout: Boolean;
   FuelRange, NearestDistance, Distance: Integer;
   Reached: array of Boolean;
   Constellation, OtherConstellation: TConstellation;
-  Reserved1, Reserved2: Integer;
   MinimumConstellationDistance, MinimumStarDistance, ConstellationIndex: Integer;
   BoundsSize: TPoint;
   BestAreaPerStar, AreaPerStar: Double;
   WorkingPolygon, Polygon: TPolygon2D;
-  Reserved3: Integer;
   Occupied: Boolean;
   MinimumArea, MaximumArea: Single;
   PlacementAttempts, TotalLinks, AxisLinks: Integer;
   Link: PConstellationStarLink;
   Coordinate: Single;
   GenerationAttempts, HumanPosition: Integer;
-  // Native unused scalar locals remain explicit; their original purposes are unknown.
-  Reserved4A, Reserved4B, Reserved4C: Integer;
   RaceOrder: array[0..7] of 0..7;
   CoalitionPositions: array[0..4] of Byte;
-  Reserved5_0, Reserved5_1, Reserved5_2, Reserved5_3, Reserved5_4, Reserved5_5: Integer;
-  Reserved5_6, Reserved5_7, Reserved5_8, Reserved5_9, Reserved5_10, Reserved5_11: Integer;
-  Reserved5_12, Reserved5_13, Reserved5_14, Reserved5_15, Reserved5_16, Reserved5_17: Integer;
-  Reserved5_18, Reserved5_19, Reserved5_20, Reserved5_21, Reserved5_22, Reserved5_23: Integer;
-  Reserved5_24, Reserved5_25, Reserved5_26, Reserved5_27, Reserved5_28, Reserved5_29: Integer;
   Bounds: TRect;
 begin
   System.RandSeed := aGalaxy.Galaxy.GenerationSeed;
@@ -7211,7 +7190,7 @@ begin
   MinimumConstellationDistance :=
       Round(Sqrt(GalaxySizeY * GalaxySizeY / Cardinal(ConstellationCount)) * 0.75);
   MinimumArea := GalaxySizeX * 0.52 * GalaxySizeY / Cardinal(ConstellationCount);
-  MaximumArea := (GalaxySizeX * 1) * 1.5 * (GalaxySizeY * 1) / Cardinal(ConstellationCount);
+  MaximumArea := GalaxySizeX * 1.5 * GalaxySizeY / Cardinal(ConstellationCount);
   GenerationAttempts := 0;
   repeat
     WorkingPolygon := TPolygon2D.Create;
@@ -7219,14 +7198,14 @@ begin
     Polygon.SetRectangle(Classes.Rect(0, 0, GalaxySizeX, GalaxySizeY));
     WorkingPolygon.Append(Polygon);
     Coordinate := 5;
-    while Coordinate < GalaxySizeX * 1 do
+    while Coordinate < GalaxySizeX do
     begin
       WorkingPolygon
           .SplitChainByPoints(MakePointF(Coordinate, 0), MakePointF(Coordinate, GalaxySizeY));
       Coordinate := Coordinate + 5;
     end;
     Coordinate := 5;
-    while Coordinate < GalaxySizeY * 1 do
+    while Coordinate < GalaxySizeY do
     begin
       WorkingPolygon
           .SplitChainByPoints(MakePointF(0, Coordinate), MakePointF(GalaxySizeX, Coordinate));
@@ -7558,30 +7537,21 @@ end;
 
 procedure TGalaxy.HideSpecialConstellation;
 var
-  I, J, K, SegmentIndex, EarIndex, LastIndex, Reserved20, MiddleIndex: Integer;
+  I, J, K, SegmentIndex, EarIndex, LastIndex, MiddleIndex: Integer;
   Star: TStar;
-  Reserved2C, Reserved30: Integer;
-  ReservedFlag, ContainsStar: Boolean;
-  Reserved38: Integer;
+  ContainsStar: Boolean;
   Current, Candidate, Hidden: TConstellation;
-  Reserved48, Reserved4C, Reserved50, Reserved54, Reserved58, Reserved5C, Reserved60, Reserved64:
-      Integer;
   Polygon, SourcePolygon: TPolygon2D;
-  Reserved70, Reserved74, Reserved78, Reserved7C, Reserved80, Reserved84: Integer;
   Segment: PMapLineSegment;
-  Reserved8C, Reserved90, Reserved94, Reserved98, Reserved9C, ReservedA0: Integer;
   Neighbors, XList, YList, BestX, BestY, WorkX, WorkY: TList;
   AreaAfterUnrestrictedTrim, AreaAfterStarSafeTrim, FullArea: Single;
   BestScore, Score, CrossEar, CrossMid: Double;
   MidX, MidY: Single;
-  ReservedF4: Integer;
   AX, BX, CX, AY, BY, CY: Single;
   MaxX, MinX, MaxY, MinY, NewX, NewY, IntersectionX, Determinant: Single;
-  Reserved130: Integer;
   Point: PPointF;
   SwapList: Pointer;
   Flag: Byte;
-  UnusedLocalBytes: array[0..15] of Byte; // Native gap before backend temporaries.
 
   function FloatFromSlot(Value: Pointer): Single;
   var
@@ -11721,7 +11691,6 @@ var
   Total, Extra: Integer;
   Order: array[0..4] of TOwnerId;
   Counts, Recruits: array[oiMaloc..oiGaal] of Integer;
-  Reserved: Integer;
   Sorted: array[0..4] of Integer;
 begin
   for Race := oiMaloc to oiGaal do
@@ -11777,7 +11746,7 @@ begin
         Order[J] := Race;
         Sorted[J] := K;
       end;
-  for I := 0 to Min(Extra - 0 - 1, 4) do
+  for I := 0 to Min(Extra - 1, 4) do
     Inc(RangerSpawnQuotas[Order[I]]);
 end;
 
@@ -13798,7 +13767,6 @@ end;
 
 procedure TStar.NextDay(RecordFilm: Boolean);
 var
-  { Local order and unused Reserved slots preserve the native DCC32 frame. }
   Item: TItem;
   Ship: TShip;
   Quantity: Integer;
@@ -13825,19 +13793,6 @@ var
   WorkValue: Single;
   WorkScale: Single;
   WearMultiplier: Single;
-  Reserved113,
-  Reserved114,
-  Reserved115,
-  Reserved116,
-  Reserved117,
-  Reserved118,
-  Reserved119,
-  Reserved120,
-  Reserved121,
-  Reserved122,
-  Reserved123,
-  Reserved124,
-  Reserved125: Byte;
   Planet: TPlanet;
   Asteroid: TAsteroid;
   OwnerShip: TShip;
@@ -13853,7 +13808,6 @@ var
   QueuedAttack: PStarCombatEvent;
   DamageColor: Cardinal;
   Damage: Cardinal;
-  Reserved189: Byte;
   DrainedDamage: Integer;
   ObjectFilm: TEFilmObj;
   Distance: Single;
@@ -13872,29 +13826,23 @@ var
   Target: Pointer;
   StoredTranclucator: Pointer;
   Tranclucator: TTranclucator;
-  Reserved273: Byte;
   Hole: THole;
   CanPull: ShortInt;
-  Reserved282, Reserved283: Byte;
   StationDestroyed: ShortInt;
   Missile: TMissile;
   InterceptedMissile: TMissile;
-  Reserved293, Reserved294, Reserved295, Reserved296, Reserved297: Byte;
   BertorBoost: Boolean;
   RemainingAmmo: Integer;
   PickupIndex: Integer;
   PickupWeight: Integer;
   DeathEvent: Pointer;
-  FilmText: WideString;
   NearestMissileDistance: Integer;
   MissileDistance: Integer;
   PointDefenseRangeSquared: Integer;
   BestMissilePriority: Integer;
   MissilePriority: Integer;
-  Reserved341, Reserved342, Reserved343, Reserved344, Reserved345: Byte;
   ActionResult: Integer;
   HitFlags: TDamageFlagSet;
-  Reserved357: Byte;
   Stage: Integer;
 
   procedure CompleteItemPickup; { Caller-popped static link; item -4, ship -8, star -12, film flag -13. Transfers, merges or consumes the completed pickup; may free the item. }
@@ -18240,19 +18188,12 @@ begin
 end;
 
 function TGalaxy.CanRecordAchievements: Boolean;
-var
-  ReservedMode, ReservedLimit: Integer;
 begin
   if SpecialSimulationMode <> 0 then
   begin
     Result := False;
     Exit;
   end;
-  { These unused calculations are present in the original eligibility check. }
-  ReservedMode := 4;
-  ReservedLimit := TurnsPerYear;
-  Inc(ReservedLimit, 107000);
-  ReservedLimit := ReservedLimit shl 1;
   Result :=
       (GetCheatPoints = 0)
           and (GR_Main.CCInterface.GetIntegrityError = 0)

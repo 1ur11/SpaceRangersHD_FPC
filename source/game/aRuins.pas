@@ -869,8 +869,6 @@ procedure TRuins.NextDayLogic;
 var
   Stage: Integer;
   Imbalance, LocalBalance: Single;
-  // Four native frame bytes precede compiler temporaries; no access identifies their type.
-  UnresolvedFrameBytes: array[0..3] of Byte;
 
   function FindDominionHomeStar: TStar;
   var
@@ -2637,7 +2635,7 @@ end;
 function TRuins.GenerateWeaponOffer(Ship: TObject; Planet: TPlanet): TWeapon;
 var
   Buyer: TShip;
-  Attempts, MinLevel, MaxLevel, MinSize, MaxSize: Integer;
+  MinLevel, MaxLevel, MinSize, MaxSize: Integer;
   Availability: TWeaponAvailabilityMask;
   Info: PWeaponInfo;
   Owner, CandidateOwner: TOwnerId;
@@ -2660,62 +2658,56 @@ begin
         and ((CurrentStar.ControlFaction = sfCoalition)
             or not (CurrentStanding in FactionStandingMasks[sfPirates])) then
       Availability := Availability + [waCoalitionOnly, waMalocOnly..waGaalOnly];
-    // The native counter guard has no back edge: only one offer is generated.
-    Attempts := 0;
-    if Attempts <= 100 then
+    Info :=
+        Galaxy.SelectWeaponInfo(RandomState, Availability, Planet.InventionLevels[piMainTech], 1);
+    AdvanceRandomSeed(RandomState);
+    if not (Buyer.TypeId in [stRanger, stPirate])
+        and (Info.ShotType in [wstTorpedo..wstRocket]) then
     begin
-      Inc(Attempts);
-      Info :=
-          Galaxy.SelectWeaponInfo(RandomState, Availability, Planet.InventionLevels[piMainTech], 1);
-      AdvanceRandomSeed(RandomState);
-      if not (Buyer.TypeId in [stRanger, stPirate])
-          and (Info.ShotType in [wstTorpedo..wstRocket]) then
+      if Buyer.CountDirectFireWeapons > Buyer.CountMissileWeapons then
+        ;
+    end;
+    MinSize := Round(Info.AverageSize * EquipmentSizeFactors[5]);
+    MaxSize := Round(Info.AverageSize * EquipmentSizeFactors[1]);
+    if (Buyer is TWarrior) and ((Buyer as TWarrior).WarriorType = wtFlagship) then
+    begin
+      MinSize := MinSize * 2;
+      MaxSize := MaxSize * 2;
+    end;
+    MinLevel := 1;
+    MaxLevel :=
+        Min(Planet.InventionLevels[piMainTech], Planet.InventionLevels[Info.InventionIndex]);
+    MinLevel := Max(MinLevel, MaxLevel div 2 - 1);
+    MaxLevel := Min(8, MaxLevel + StationOfferWeaponLevelBonus[TypeId]);
+    Owner := PickRandomEquipmentOwner(RandomState);
+    if (CurrentStar.ControlFaction = sfPirates)
+        and (CurrentStanding in FactionStandingMasks[sfPirates])
+        and ((NextRandomIntRange(1, 100, RandomState) < 70)
+            or (Galaxy.CoalitionDefeatedTurn <> 0)) then
+      Owner := oiPirate;
+    for CandidateOwner := oiMaloc to oiPirate do
+      if OwnerWeaponAvailability[CandidateOwner] = Info.Availability then
       begin
-        if Buyer.CountDirectFireWeapons > Buyer.CountMissileWeapons then
-          ;
+        Owner := CandidateOwner;
+        Break;
       end;
-      MinSize := Round(Info.AverageSize * EquipmentSizeFactors[5]);
-      MaxSize := Round(Info.AverageSize * EquipmentSizeFactors[1]);
-      if (Buyer is TWarrior) and ((Buyer as TWarrior).WarriorType = wtFlagship) then
-      begin
-        MinSize := MinSize * 2;
-        MaxSize := MaxSize * 2;
-      end;
-      MinLevel := 1;
-      MaxLevel :=
-          Min(Planet.InventionLevels[piMainTech], Planet.InventionLevels[Info.InventionIndex]);
-      MinLevel := Max(MinLevel, MaxLevel div 2 - 1);
-      MaxLevel := Min(8, MaxLevel + StationOfferWeaponLevelBonus[TypeId]);
-      Owner := PickRandomEquipmentOwner(RandomState);
-      if (CurrentStar.ControlFaction = sfPirates)
-          and (CurrentStanding in FactionStandingMasks[sfPirates])
-          and ((NextRandomIntRange(1, 100, RandomState) < 70)
-              or (Galaxy.CoalitionDefeatedTurn <> 0)) then
-        Owner := oiPirate;
-      for CandidateOwner := oiMaloc to oiPirate do
-        if OwnerWeaponAvailability[CandidateOwner] = Info.Availability then
-        begin
-          Owner := CandidateOwner;
-          Break;
-        end;
-      Result :=
-          CreateGeneratedWeapon(
-              Info,
-              NextRandomIntRange(MinSize, MaxSize, RandomState),
-              NextRandomIntRange(MinLevel, MaxLevel, RandomState),
-              Owner
-          );
-      if (Buyer is TWarrior) and ((Buyer as TWarrior).WarriorType = wtFlagship) then
-      begin
-        Result.DetailImprovement := 3;
-        Result.Improve(ikAny);
-      end
-      else if Buyer.CanGenerateMicroModuleForLoadout then
-      begin
-        ModuleIndex := SelectWeaponOfferSpecialMicroModule(Result, Planet);
-        if ModuleIndex >= 0 then
-          ApplySpecialMicroModule(ModuleIndex, Result);
-      end;
+    Result :=
+        CreateGeneratedWeapon(
+            Info,
+            NextRandomIntRange(MinSize, MaxSize, RandomState),
+            NextRandomIntRange(MinLevel, MaxLevel, RandomState),
+            Owner
+        );
+    if (Buyer is TWarrior) and ((Buyer as TWarrior).WarriorType = wtFlagship) then
+    begin
+      Result.DetailImprovement := 3;
+      Result.Improve(ikAny);
+    end
+    else if Buyer.CanGenerateMicroModuleForLoadout then
+    begin
+      ModuleIndex := SelectWeaponOfferSpecialMicroModule(Result, Planet);
+      if ModuleIndex >= 0 then
+        ApplySpecialMicroModule(ModuleIndex, Result);
     end;
   end;
 end;

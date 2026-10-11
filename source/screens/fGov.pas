@@ -295,9 +295,6 @@ begin
     UpCallback := PlanetPanel.PlanetClicked;
 end;
 
-// Native reserves an unreferenced dword before its managed-string temporaries.
-// UnresolvedFrameBytes below preserves the matching frame and prologue push ECX.
-
 procedure TfGov.OnOpen;
 var
   Owner: TOwnerId;
@@ -307,8 +304,6 @@ var
   Stage: Integer;
   Failed: Boolean;
   Portrait: TObjectGI;
-  // Four native frame bytes precede compiler temporaries; no access identifies their type.
-  UnresolvedFrameBytes: array[0..3] of Byte;
 begin
   Stage := 0;
   try

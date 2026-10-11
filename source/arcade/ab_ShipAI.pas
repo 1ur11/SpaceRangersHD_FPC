@@ -254,13 +254,8 @@ var
   Index, Attempts: Integer;
   Item: TEquipment;
   Reward: TItem;
-  // Native has 16 unreferenced bytes between Reward and LivingEnemies,
-  // and another 16 between RewardScale and SavedNextItemId. Original
-  // local types and allocation remain unresolved.
-  Unused20, Unused24, Unused28, Unused2C: Integer;
   LivingEnemies: Integer;
   RewardScale: Single;
-  Unused38, Unused3C, Unused40, Unused44: Integer;
   SavedNextItemId: Cardinal;
   Event: TGalaxyEvent;
   ItemType: TItemType;

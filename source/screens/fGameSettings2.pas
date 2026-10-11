@@ -167,7 +167,6 @@ var
   I, J: Integer;
   Text: WideString;
   Race: TOwnerId;
-  Unused: Integer; // Native O- stack reserves this unused local.
 begin
   inherited InitializeLayout;
   AppendLogTextThreadSafe('fGameSettings2... ');

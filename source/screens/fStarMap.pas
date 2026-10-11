@@ -6675,13 +6675,8 @@ var
   MainCircle, InnerCircle, ExtraCircle: TSpaceCircleGI;
   SimpleCircle: TCircleGI;
   RangeValue, RangeMaximum: Integer;
-  Reserved: array[0..2] of Integer;
 begin
   CursorObject := FindObjectAtCursor;
-  // These three assignments are retained from the native routine; their values are unused.
-  Reserved[0] := 1;
-  Reserved[1] := 1;
-  Reserved[2] := 1;
   AnyWeapon := False;
   for Slot := 0 to 4 do
     if SelectedWeapons[Slot] then

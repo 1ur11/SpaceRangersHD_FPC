@@ -1922,9 +1922,6 @@ begin
   else
     CareerThreshold := 0;
   end;
-  { Native retains this comparison although neither branch does anything. }
-  if UnusedMode = 0 then
-    ;
   NextStar := nil;
   for I := 1 to Galaxy.Stars.Count - 1 do
   begin
@@ -5613,7 +5610,7 @@ var
   Control: TCacheControlEC;
   Buffer: TCBufEC;
   Found: Boolean;
-  ShipTypes, UnusedText, FromFactions, ToFactions: WideString;
+  ShipTypes, FromFactions, ToFactions: WideString;
 begin
   Result := False;
   ResponseText := '';
@@ -5699,7 +5696,6 @@ begin
                         (Integer(CurrentPlanet.GenerationSeed) + Galaxy.CurrentTurn) div Interval
                     );
                 Found := False;
-                UnusedText := '';
                 for K := 0 to MaximumQuest do
                 begin
                   FromFactions :=

@@ -298,9 +298,9 @@ begin
     if DisplayedGenerationStage < NewGameGenerationStage then
     begin
       Inc(DisplayedGenerationStage);
-      if (DisplayedGenerationStage + 0 >= 1) and (DisplayedGenerationStage + 0 <= 8) then
+      if (DisplayedGenerationStage >= 1) and (DisplayedGenerationStage <= 8) then
         GetByName(AnsiString('ICW') + IntToStr(DisplayedGenerationStage)).SetActive(True);
-      if (DisplayedGenerationStage + 0 >= 1) and (DisplayedGenerationStage + 0 <= 8) then
+      if (DisplayedGenerationStage >= 1) and (DisplayedGenerationStage <= 8) then
         (GetByName(AnsiString('MCW') + IntToStr(DisplayedGenerationStage)) as TLabelGI)
             .SetTextColor(IntroductionBlinkColorA);
     end;

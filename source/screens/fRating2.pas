@@ -1671,7 +1671,6 @@ end;
 
 function ShowRangerRating(Parent: TMessageLoopGI): Boolean;
 var
-  CursorAlignment: array[0..2] of Byte;
   State: TCursorStateGI;
 begin
   Parent.RootUiObject.OnModalSuspend;

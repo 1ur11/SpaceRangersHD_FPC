@@ -124,9 +124,6 @@ begin
   GlobalCache.QueueNamedLoadIfMissing(PendingLoads, 'GI', 'Bm.FormMain3.2Ship3');
   GlobalCache.QueueNamedLoadIfMissing(PendingLoads, 'GI', 'Bm.FormMain2.2AnimCaption');
   GlobalCache.QueueNamedLoadIfMissing(PendingLoads, 'GI', 'Bm.FormMain3.2BG');
-  if ScreenLoadMode = 4 then
-  begin
-  end;
 end;
 
 procedure QueueSpaceLoadingAssets(PendingLoads: TList; Owner: TObjectGI);

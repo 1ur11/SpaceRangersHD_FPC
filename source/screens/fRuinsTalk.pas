@@ -1841,7 +1841,6 @@ var
   Info: PWeaponInfo;
   MinimumSizeFactor, MaximumSizeFactor: Single;
   Stage: Integer;
-  UnusedLocal: Integer; // Native frame retains four unreferenced bytes; original type unknown.
 begin
   Stage := 0;
   try
