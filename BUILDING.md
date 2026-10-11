@@ -82,3 +82,31 @@ The package ID and default version are defined in `tools/targets.py`; local rebu
 do not bump the version. `ANDROID_VERSION_CODE` and `ANDROID_VERSION_NAME` override
 the APK version; `ANDROID_BUILD_TOOLS_VERSION` selects an installed SDK build-tools
 version instead of the newest one.
+
+## iOS (experimental)
+
+Requires macOS, full Xcode, Python 3.10+ with current patch updates, FPC 3.2.2,
+GNU Make, CMake and Ninja. Targets iOS 15+; SDL2 and codecs are downloaded during
+the build. Select Xcode with `xcode-select` or `DEVELOPER_DIR` and install an iOS
+simulator runtime in Xcode's Components settings.
+
+```sh
+./tools/build.py --target=ios-simulator
+./tools/run.py --target=ios-simulator --simulator="iPhone 15" --game-dir=/path/to/game
+```
+
+The simulator uses the host CPU; pass `--simulator-arch=x86_64` or `arm64` to both
+commands to override it. Select a device by name or UDID with `--simulator`;
+otherwise the single booted device is used. `xcrun simctl list devices available`
+lists installed devices. Use `--game-dir` for the initial asset import; omit it
+on later runs to reuse them. Reinstalling preserves assets and saves.
+
+```sh
+./tools/build.py --target=ios
+```
+
+Apps are in `.local/<target>-<cpu>/debug/SpaceRangersHD.app`; `--release` and `--lto`
+select other profiles. Device builds use ARM64 and require signing with an Apple
+identity and provisioning profile before installation. Copy game files to
+`Documents/Game` through Files or Finder file sharing. Saves and logs are in
+`Library/Application Support/SpaceRangersHD` within the app sandbox.

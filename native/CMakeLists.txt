@@ -3,7 +3,9 @@ project(rangers_native LANGUAGES C)
 get_filename_component(RANGERS_SOURCE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." REALPATH)
 add_compile_options("-ffile-prefix-map=${RANGERS_SOURCE_ROOT}=."
                     "-ffile-prefix-map=${CMAKE_BINARY_DIR}=./build")
-if(ANDROID OR EMSCRIPTEN)
+if(ANDROID
+   OR EMSCRIPTEN
+   OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
   include(FetchContent)
   if(ANDROID)
     enable_language(CXX)
@@ -13,6 +15,17 @@ if(ANDROID OR EMSCRIPTEN)
         ON
         CACHE BOOL "" FORCE)
     set(SDL_STATIC
+        OFF
+        CACHE BOOL "" FORCE)
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    set(SDL_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/sdl2-ios.patch")
+    set(SDL_SHARED
+        OFF
+        CACHE BOOL "" FORCE)
+    set(SDL_STATIC
+        ON
+        CACHE BOOL "" FORCE)
+    set(SDL_HIDAPI
         OFF
         CACHE BOOL "" FORCE)
   else()
