@@ -3,8 +3,10 @@ set -euo pipefail
 
 revision=$(git rev-parse HEAD)
 short=${revision:0:12}
-tag="build-$short"
-date=$(git show -s --format=%cs HEAD)
+# GitHub sorts same-day releases by tag, so hashes alone are not chronological.
+timestamp=$(TZ=UTC git show -s --format=%cd --date=format-local:%Y%m%d-%H%M%S HEAD)
+tag="build-$timestamp-$short"
+date=$(TZ=UTC git show -s --format=%cd --date=format-local:'%Y-%m-%d %H:%M:%S UTC' HEAD)
 title="Build $date · $short"
 directory=build/release
 
