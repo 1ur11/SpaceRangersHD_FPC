@@ -1,6 +1,6 @@
 # Space Rangers HD — Free Pascal Port
 
-A Free Pascal port of **Space Rangers HD: A War Apart**, based on the
+An experimental Free Pascal port of **Space Rangers HD: A War Apart**, based on the
 recovered Delphi source and intended to preserve the original game behavior.
 
 Supported platforms:
@@ -8,22 +8,14 @@ Supported platforms:
 - Linux x86_64
 - macOS ARM64
 - Android ARM64 (8.0+)
+- iOS (15+; tested only in the simulator)
 - WebAssembly (browser)
+- Nintendo Switch homebrew (tested only in emulators)
 
 See [BUILDING.md](BUILDING.md) for dependencies and build/run instructions.
 
 [Download Linux x86_64 and Android ARM64 builds](https://github.com/pakompom/SpaceRangersHD_FPC/releases).
 You need your own game data. Releases are built automatically from source changes on `main`.
-
-On Android, automatic resolution sizes the interface for the display density and
-fits the complete view in landscape. The shared bottom panel and radar
-scale independently of the world, with rendering at the display's pixel resolution.
-Settings → Graphics → Mobile UI offers Automatic, Yes and No on every platform.
-Automatic enables it on Android. Applying a change reloads the interface.
-
-The source was generated from
-[SpaceRangersHD_decomp at `7342a10`](https://github.com/pakompom/SpaceRangersHD_decomp/tree/7342a10dc1a0dcaa242ea4bc8c33e29c0eb6bdc0),
-which reconstructs the **2026-08-11 prerelease** build.
 
 ## Known issues
 
@@ -38,6 +30,7 @@ which reconstructs the **2026-08-11 prerelease** build.
 - `platform/`: Pascal windowing, input, graphics, audio, and OS services.
 - `platform/wasm/`: browser page and adapters to Emscripten's host runtime.
 - `platform/android/`: Android launcher, SDL activity, resource import and native entry point.
+- `platform/switch/`: libnx entry point and controller input for Switch homebrew.
 - `native/`: OKGF and SDL build integration for desktop, Android and the browser.
 - `vendor/okgf/`: pinned [OKGF](https://github.com/pakompom/okgf) submodule.
 - `vendor/fpc/`: pinned [FPC fork](https://github.com/pakompom/fpc_sr) submodule.
@@ -51,3 +44,7 @@ which reconstructs the **2026-08-11 prerelease** build.
 - [Personal branch with enhancements](https://github.com/pakompom/SpaceRangersHD_FPC/tree/personal)
 
 Development uses LLMs such as GPT-6 Astra through Codex.
+
+The source was generated from
+[SpaceRangersHD_decomp at `7342a10`](https://github.com/pakompom/SpaceRangersHD_decomp/tree/7342a10dc1a0dcaa242ea4bc8c33e29c0eb6bdc0),
+which reconstructs the **2026-08-11 prerelease** build.

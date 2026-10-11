@@ -1906,6 +1906,8 @@ procedure TMessageLoopGI.DrawQueuedUpdateRects;
 var
   RectNode: TRectGR;
 begin
+  if CursorControl <> nil then
+    (CursorControl as TCursorGI).RefreshVisibility;
   if RegionDrawPending and (RegionDrawControl <> nil) then
     RegionDrawControl.PrepareRegionDraw(RegionDrawControl.HitTestBounds);
   PendingRedraw := False;
@@ -1919,6 +1921,9 @@ end;
 
 procedure TMessageLoopGI.DrawQueuedControlRects;
 begin
+  // Star map, arcade and film draw through this path instead of DrawFrame.
+  if CursorControl <> nil then
+    (CursorControl as TCursorGI).RefreshVisibility;
   if UpdateRects.FirstRect <> nil then
   begin
     PendingRedraw := True;
@@ -2349,6 +2354,9 @@ end;
 
 procedure TMessageLoopGI.DrawFrame;
 begin
+  // Visibility changes enqueue cursor rectangles, including on an idle frame.
+  if CursorControl <> nil then
+    (CursorControl as TCursorGI).RefreshVisibility;
   if UpdateRects.FirstRect <> nil then
   begin
     DrawQueuedUpdateRects;
