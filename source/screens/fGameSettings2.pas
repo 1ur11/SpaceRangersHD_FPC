@@ -83,7 +83,7 @@ type
     procedure DifficultyPresetClicked(Sender: TObjectGI);
     procedure CustomDifficultyClicked(Sender: TObjectGI);
     procedure CustomDifficultyMouseUp(Sender: TObjectGI; KeyState: Cardinal; Point: TPoint);
-    procedure StartNewGameGeneration;
+    procedure PrepareNewGameGeneration;
     procedure ApplyClicked(Sender: TObjectGI);
     procedure CancelClicked(Sender: TObjectGI);
     procedure MainPanelKeyDown(Sender: TObjectGI; Key: Cardinal);
@@ -1864,7 +1864,7 @@ begin
   ToggleLevelPanel(Sender);
 end;
 
-procedure TfGameSettings2.StartNewGameGeneration;
+procedure TfGameSettings2.PrepareNewGameGeneration;
 var
   I: Integer;
 begin
@@ -1880,7 +1880,11 @@ begin
     NewGameGenerationThread.StartingItemTypes[I] := ItemTypeByChoice[StartingItemChoices[I] - 1];
   for I := 0 to 1 do
     NewGameGenerationThread.StartingSkills[I] := StartingSkills[I];
-  NewGameGenerationThread.Start;
+  // The original starts the worker here, before the button's deferred
+  // OnPressCode and closing UI scripts run. TGalaxy.Create rebuilds
+  // SharedScriptVariables concurrently with their lookups (e.g. UICheckElement).
+  // Start only after the settings loop finishes and the introduction opens.
+  NewGameGenerationThread.StartOnIntroduction := True;
 end;
 
 procedure TfGameSettings2.ApplyClicked(Sender: TObjectGI);
@@ -2014,7 +2018,7 @@ begin
       NewGameGenerationThread := TThreadCreateNewGame.Create;
       NewGameGenerationThread.PlayerName :=
           TrimWideString((GetByName('PlayerName') as TEditGI).Text);
-      StartNewGameGeneration;
+      PrepareNewGameGeneration;
       RequestedScreenId := screenIntroduction;
       RequestClose(1);
     end;

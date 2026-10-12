@@ -147,6 +147,12 @@ port, and the source files that implement them.
 
 ## Worker lifetime and error reporting
 
+- **Modded new-game startup.** `source/screens/fGameSettings2.pas` prepares generation
+  but starts the worker only when `source/screens/fIntroduction.pas` opens, after the
+  settings screen's deferred button and closing scripts finish. The recovered Delphi
+  source starts it inside the button callback, allowing `TGalaxy.Create` to rebuild
+  `SharedScriptVariables` while those scripts link variables such as `UICheckElement`.
+  Deferring the start removes that race and the resulting access violation.
 - **Common worker contract.** `source/core/EC_Thread.pas` uses FPC threads and
   `platform/GameEvents.pas` uses SDL conditions for multi-event waits.
   `TThreadEC.CheckFailure` transfers failures with worker backtraces before completion

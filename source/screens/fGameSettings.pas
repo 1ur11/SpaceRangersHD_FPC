@@ -17,6 +17,7 @@ type
   protected
     procedure WaitForCalculation;
   public
+    StartOnIntroduction: Boolean;
     PlayerRace: TOwnerId;
     DifficultyLevels: TGalaxyDifficultyLevels;
     CaptainPortraitIndex: Integer;
