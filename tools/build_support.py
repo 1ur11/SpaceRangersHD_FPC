@@ -18,6 +18,10 @@ from pathlib import Path
 from targets import ROOT
 
 DEPENDENCY_SOURCES = {
+    "zlib": (
+        "https://github.com/madler/zlib/releases/download/v1.3.1/zlib-1.3.1.tar.gz",
+        "9a93b2b7dfdac77ceba5a558a580e74667dd6fede4585b91eefb60f03b72df23",
+    ),
     "jpeg": (
         "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.2/libjpeg-turbo-3.1.2.tar.gz",
         "8f0012234b464ce50890c490f18194f913a7b1f4e6a03d6644179fa0f867d0cf",
@@ -312,9 +316,10 @@ def dependency_source(name: str) -> Path:
     return source
 
 
-def build_codecs(work: Path, options: list[str], rebuild: bool) -> None:
+def build_codecs(work: Path, options: list[str], rebuild: bool, *, windows: bool = False) -> None:
     """Build pinned codec archives with the platform's CMake toolchain and prefix."""
     dependencies = {
+        **({"zlib": ["-DZLIB_BUILD_EXAMPLES=OFF"]} if windows else {}),
         "jpeg": [
             "-DENABLE_SHARED=OFF",
             "-DENABLE_STATIC=ON",
@@ -338,7 +343,9 @@ def build_codecs(work: Path, options: list[str], rebuild: bool) -> None:
         directory.mkdir(parents=True, exist_ok=True)
         changed = configure_native(directory, build, [
             "cmake", "-S", dependency_source(name), "-B", build, "-G", "Ninja",
-            "-DCMAKE_BUILD_TYPE=Release", *options, "-DBUILD_SHARED_LIBS=OFF", *extra,
+            "-DCMAKE_BUILD_TYPE=Release", *options,
+            "-DBUILD_SHARED_LIBS=" + ("ON" if windows and name in ("ogg", "vorbis") else "OFF"),
+            *extra,
         ])  # fmt: skip
         run_step(directory, name, [
             "cmake", "--build", build, "--parallel", "6",
@@ -352,7 +359,8 @@ def build_codecs(work: Path, options: list[str], rebuild: bool) -> None:
         def install_state(build: Path = build, manifest: Path = manifest) -> str:
             installed = manifest.read_text().splitlines() if manifest.is_file() else []
             return json.dumps(file_state([
-                build / "configure-command.json", manifest, *build.rglob("*.a"), *installed,
+                build / "configure-command.json", manifest, *build.rglob("*.a"),
+                *build.rglob("*.dll"), *installed,
             ]))  # fmt: skip
 
         if not stamp.matches(install_state(), manifest):

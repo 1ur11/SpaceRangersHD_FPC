@@ -958,8 +958,9 @@ begin
   if Block.CountParams('CheatsDisabled') > 0 then
     if ParseCheatsDisabledFlag(TrimWideString(Block.GetParamByPathOrMarker('CheatsDisabled'))) then
       CheatsDisabled := True;
-  // These sizes identify the original Win32 DLL distribution.
-{$IF Defined(MSWINDOWS) and Defined(CPU386)}
+  // These sizes identify the original Win32 DLL distribution. The FPC port
+  // builds its own libraries and uses the portable integrity marker instead.
+{$IF Defined(MSWINDOWS) and Defined(CPU386) and not Defined(FPC)}
   // Preserve the native string construction and encoded module-size checks.
   DllSuffix := 'll';
   DllSuffix := '.d' + DllSuffix;
@@ -5181,7 +5182,9 @@ var
 begin
   if ModuleCrcIntegrityStatus = mcsUnchecked then
   begin
-{$IF Defined(MSWINDOWS) and Defined(CPU386)}
+  // FPC uses its own codecs/OKGF, including Pascal zlib. Their files cannot
+  // match the original game's DLL checksums, even on 32-bit Windows.
+{$IF Defined(MSWINDOWS) and Defined(CPU386) and not Defined(FPC)}
     Extension := 'll';
     Extension := '.d' + Extension;
     FileName := DecodeTextW('sotoenalm^_^aucah') + Extension; // 'steam_ach'

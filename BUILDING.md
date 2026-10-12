@@ -43,6 +43,7 @@ enabled; compiler and runtime caches live in `.local/fpc/<cpu>-<system>/`.
 | --- | --- |
 | Linux | `.local/linux-<cpu>/<profile>/bin/`: `Rangers` and `libokgf.so` |
 | macOS | `.local/<profile>/Space Rangers HD.app` |
+| Windows 32 / 64 bit | `.local/win32-i386/<profile>/bin/` / `.local/win64-x86_64/<profile>/bin/` |
 | Browser | `.local/wasm/<profile>/bin/` |
 | Android | `.local/android-arm64/<profile>/Rangers.apk` |
 | iOS / simulator | `.local/<target>-<cpu>/<profile>/SpaceRangersHD.app` |
@@ -50,6 +51,21 @@ enabled; compiler and runtime caches live in `.local/fpc/<cpu>-<system>/`.
 
 Linux CPU names are `x86_64` and `aarch64`. Keep the Linux executable and OKGF
 library together; SDL and codecs remain system dependencies.
+
+## Windows
+
+Requires macOS or Linux, [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases)
+and Ninja. Set `LLVM_MINGW` to the unpacked SDK directory.
+
+```sh
+LLVM_MINGW=/path/to/llvm-mingw ./tools/build.py --target=win32 --release
+./tools/run.py --target=win32 --release --bottle=SR2 --game-dir=/path/to/game
+```
+
+Keep `Rangers.exe` and its DLLs together. Use `--target=win64` for a 64-bit build.
+
+The launcher uses CrossOver on macOS or Wine on Linux. `WINE` overrides the
+executable; `--bottle` selects a CrossOver bottle.
 
 ## Browser
 
@@ -145,3 +161,8 @@ FPC_SOURCE=../fpc_sr ./tools/build.py
 The sync preserves Git metadata and stops on conflicting vendor edits.
 `python3 tools/sync_fpc.py ../fpc_sr` syncs without building. Commit compiler
 changes in `fpc_sr`, then update the vendor pin when integrating them.
+
+`FPC_COMPILER=/path/to/ppcross386` selects a prebuilt LLVM compiler; the build
+still compiles its target RTL. Compiler changes invalidate RTL and game caches.
+`FPC_SOURCE` retains the bootstrap compiler after the first build to speed up
+cross-CPU compiler development.

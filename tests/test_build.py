@@ -321,6 +321,14 @@ class StampTests(BuildFixture):
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_windows_target_cpu_is_independent_of_host(self):
+        with patch("targets.host_cpu", return_value="aarch64"):
+            for target, cpu in (("win32", "i386"), ("win64", "x86_64")):
+                config = BuildConfig(target, True, True, Path("/project"))
+                self.assertEqual(config.cpu, cpu)
+                self.assertEqual(config.work, Path(f"/project/.local/{target}-{cpu}/release-lto"))
+                self.assertEqual(config.artifact.name, "Rangers.exe")
+
     def test_existing_output_layout_for_all_profiles(self):
         root = Path("/project")
         directories = {
