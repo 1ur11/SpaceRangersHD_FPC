@@ -215,7 +215,7 @@ type
     destructor Destroy; override;
   end;
 
-  TScriptShip = class(TObjectEx)
+  TScriptShip = class(TRegisteredGameObject)
     Script: TScript;
     GroupIndex: Integer;
     Ship: TShip;
@@ -325,7 +325,7 @@ type
     destructor Destroy; override;
   end;
 
-  TScriptState = class(TObjectEx)
+  TScriptState = class(TRegisteredGameObject)
     Name: WideString;
     StateKind: Integer;
     TargetVarName: WideString;
@@ -369,7 +369,7 @@ type
     destructor Destroy; override;
   end;
 
-  TScript = class(TObjectEx)
+  TScript = class(TRegisteredGameObject)
     ClassId: Integer;
     ScriptFileName: WideString;
     Constellations: TList;
@@ -734,6 +734,9 @@ function GetScriptContextDescription: WideString;
 implementation
 
 uses
+{$IFDEF NATIVE_SCRIPT_MODS}
+  NativeScriptLibrary,
+{$ENDIF}
   GI_MessageLoop,
   GI_MessageBox,
   GI_XviD,
@@ -4740,64 +4743,23 @@ end;
 
 procedure TLibraryHandler.InitFunction(Cell: TVarEC);
 var
-  Name, Text, Kind: WideString;
-  I, Count: Integer;
-  Proc: Pointer;
-  Signature: array of Dword;
+  Name: WideString;
+{$IFDEF NATIVE_SCRIPT_MODS}
+  Signature, ExportName: WideString;
+{$ENDIF}
 begin
-  Text := Cell.GetString;
-  Name := ExtractDelimitedPartW(Text, 1, ',');
-  Text := DefinitionBlock.GetParam(Name);
-  Count := CountDelimitedPartsW(Text, ',');
-  if Count < 2 then
-    raise Exception.Create(
-        AnsiString('Failed to init library function ' + Name + ' from ' + LibraryName));
-  Proc :=
-      ScriptLibraryProc(ModuleHandle, PAnsiChar(AnsiString(ExtractDelimitedPartW(Text, 1, ','))));
-  if Proc = nil then
-    raise Exception.Create(
-        AnsiString('Failed to find library function ' + Name + ' in ' + LibraryName));
-  SetLength(Signature, Count);
-  Kind := ExtractDelimitedPartW(Text, 0, ',');
-  if Kind = 'int' then
-    Signature[0] := Ord(lvInt)
-  else if Kind = 'dword' then
-    Signature[0] := Ord(lvDword)
-  else if Kind = 'float' then
-    Signature[0] := Ord(lvFloat)
-  else if Kind = 'str' then
-    Signature[0] := Ord(lvString)
-  else
-    Signature[0] := Ord(lvVoid);
-  Signature[1] := Cardinal(Proc);
-  for I := 2 to Count - 1 do
-  begin
-    Kind := ExtractDelimitedPartW(Text, I, ',');
-    if Kind = 'int' then
-      Signature[I] := Ord(lvInt)
-    else if Kind = 'dword' then
-      Signature[I] := Ord(lvDword)
-    else if Kind = 'float' then
-      Signature[I] := Ord(lvFloat)
-    else if Kind = 'str' then
-      Signature[I] := Ord(lvString)
-    else if Kind = 'ref' then
-      Signature[I] := Ord(lvRef)
-    else if Kind = 'code' then
-      Signature[I] := Ord(lvCode)
-    else
-      raise Exception.Create(
-          AnsiString(
-              'Failed to init library function '
-                  + Name
-                  + ' from '
-                  + LibraryName
-                  + ' - unknown type '
-                  + Kind
-          ));
-  end;
-  Cell.SetLibrarySignature(Signature);
-  SetLength(Signature, 0);
+  Name := ExtractDelimitedPartW(Cell.GetString, 1, ',');
+{$IFDEF NATIVE_SCRIPT_MODS}
+  Signature := '';
+  if (DefinitionBlock <> nil) and (DefinitionBlock.CountParams(Name) > 0) then
+    Signature := DefinitionBlock.GetParam(Name);
+  ExportName := Name;
+  if Signature <> '' then
+    ExportName := ExtractDelimitedPartW(Signature, 1, ',');
+  if InitNativeScriptFunction(Cell, ModuleHandle, ExportName, Signature) then
+    Exit;
+{$ENDIF}
+  raise Exception.Create('Failed to find library function ' + Name + ' in ' + LibraryName);
 end;
 
 procedure TLibraryHandler.InitAllFunctions(Scope: TVarArrayEC);
@@ -4806,6 +4768,13 @@ var
   Name: WideString;
   Cell: TVarEC;
 begin
+{$IFDEF NATIVE_SCRIPT_MODS}
+  if DefinitionBlock = nil then
+  begin
+    InitAllNativeScriptFunctions(Scope, ModuleHandle);
+    Exit;
+  end;
+{$ENDIF}
   Count := DefinitionBlock.GetParamCount;
   for I := 0 to Count - 1 do
   begin
@@ -4814,11 +4783,7 @@ begin
       Continue;
     Cell := Scope.GetVarNE(Name);
     if Cell = nil then
-    begin
-      Cell := TVarEC.Create(vkLibraryFun);
-      Cell.Name := Name;
-      Scope.AddItem(Cell);
-    end;
+      Cell := Scope.Add(Name, vkLibraryFun);
     if Cell.RealVType = vkLibraryFun then
     begin
       Cell.SetString(LibraryName + ',' + Name);
@@ -4844,16 +4809,22 @@ var
   LowIndex, HighIndex, Middle, Comparison: Integer;
   Entry: TLibraryHandler;
 
-  function LoadHandler: TLibraryHandler; { Nested helper; captures the library name at ParentFrame-4. Returns nil when its ScriptLibs block is absent. }
+  function LoadHandler: TLibraryHandler;
   var
     Module: Cardinal;
     Definition: TBlockParEC;
   begin
-    Result := nil;
-    Definition := GameDataConfig.FindBlockByPath('ScriptLibs.' + Name);
+    Definition := nil;
+    if GameDataConfig <> nil then
+      Definition := GameDataConfig.FindBlockByPath('ScriptLibs.' + Name);
     if Definition = nil then
-      Exit;
-    Module := LoadScriptLibrary(Definition.GetParam('Path'));
+{$IFDEF NATIVE_SCRIPT_MODS}
+      Module := LoadNativeScriptLibrary(Name)
+{$ELSE}
+      Module := 0
+{$ENDIF}
+    else
+      Module := LoadScriptLibrary(Definition.GetParam('Path'));
     if Module = 0 then
       raise Exception.Create(AnsiString('Failed to load library ' + Name));
     Result := TLibraryHandler.Create(Name, Module, Definition);

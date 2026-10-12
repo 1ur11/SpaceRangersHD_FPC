@@ -103,7 +103,7 @@ type
 
   PExtraSpecial = PointerToTExtraSpecial;
 
-  TItem = class(TObjectEx)
+  TItem = class(TRegisteredGameObject)
     GraphObject: TObjectSE;
     Id: Integer;
     ItemType: TItemType;

@@ -79,8 +79,7 @@ type
   );
 
   {$Z4}
-  TLibraryValueKind =
-      (lvVoid = 0, lvInt = 1, lvDword = 2, lvFloat = 3, lvString = 4, lvRef = 5, lvCode = 6);
+  TLibraryValueKind = (lvVoid = 0, lvInt = 1, lvDword = 2, lvFloat = 3, lvString = 4);
 
   {$Z1}
   TCodeTokenKind = (
@@ -646,6 +645,9 @@ procedure RegisterExpressionBuiltins(Scope: TVarArrayEC);
 implementation
 
 uses
+{$IFDEF NATIVE_SCRIPT_MODS}
+  NativeScriptLibrary,
+{$ENDIF}
   GameHeap,
   Math;
 
@@ -4804,7 +4806,6 @@ procedure TExpressionEC.Evaluate(
     DebugContext: TScriptDebugState
 );
 var
-  LibraryWord: Dword;
   i, j: Integer;
   Instruction: TExpressionInstrEC;
   Dest, Left, Right: TExpressionVarEC;
@@ -4812,7 +4813,6 @@ var
   Value, IndexValue, Callee, Argument: TVarEC;
   Invocation: TCodeEC;
   ResultKind: TVarKind;
-  SingleValue: Single;
 begin
   i := 0;
   while i < VariableCount do
@@ -4934,60 +4934,22 @@ begin
       Callee := Left.Resolve(vkEmpty);
       if Callee.RealVType = vkLibraryFun then
       begin
-{$IF Defined(MSWINDOWS) and Defined(CPU386)}
-  {$ASMMODE INTEL}
-        Value := Callee.Resolve;
-        if High(Value.LibraryFunData) + 1 - 2 <> Instruction.OperandCount - 2 then
-          raise ExceptionExpressionEC.Create('Count variable : ' + Left.Name);
-        for j := Instruction.OperandCount - 2 - 1 downto 0 do
+{$IFDEF NATIVE_SCRIPT_MODS}
+        SetLength(Arguments, Instruction.OperandCount - 1);
+        Arguments[0] := Dest.Value;
+        for j := 2 to Instruction.OperandCount - 1 do
+          Arguments[j - 1] := GetVariable(Instruction.Operands[j]).Resolve(vkEmpty);
+        if Code <> nil then
         begin
-          Argument := GetVariable(Instruction.Operands[j + 2]).Resolve(vkEmpty);
-          case TLibraryValueKind(Value.LibraryFunData[2 + j]) of
-            lvInt: LibraryWord := Argument.GetInt;
-            lvDword: LibraryWord := Argument.GetDword;
-            lvFloat:
-            begin
-              SingleValue := Argument.GetFloat;
-              LibraryWord := PDword(@SingleValue)^;
-            end;
-            lvString:
-            begin
-              IndexValue := Argument.Resolve;
-              if IndexValue.Kind <> vkString then
-                raise ExceptionExpressionEC.Create('Variable not string');
-              if Length(IndexValue.StringValue) <= 0 then
-                LibraryWord := 0
-              else
-                LibraryWord := Dword(PWideChar(IndexValue.StringValue));
-            end;
-            lvRef: LibraryWord := Dword(Argument);
-            lvCode: LibraryWord := Dword(Code);
-          else
-            LibraryWord := 0;
-          end;
-          // The imported function consumes its dynamically constructed argument stack.
-          asm
-            push LibraryWord
-          end;
+          Code.Process := Process;
+          Code.DebugContext := DebugContext;
         end;
         ScriptCallTrace[ScriptCallTracePosition] := Callee;
         ScriptCallTraceCount := Min(20, ScriptCallTraceCount + 1);
         ScriptCallTracePosition := (ScriptCallTracePosition + 1) mod 20;
-        LibraryWord := Value.LibraryFunData[1];
-        asm
-          call LibraryWord
-          mov LibraryWord, eax
-        end;
-        if Value.LibraryFunData[0] = 1 then
-          Dest.Value.SetInt(LibraryWord)
-        else if Value.LibraryFunData[0] = 2 then
-          Dest.Value.SetDword(LibraryWord)
-        else if Value.LibraryFunData[0] = 3 then
-          Dest.Value.SetFloat(PSingle(@LibraryWord)^)
-        else if Value.LibraryFunData[0] = 4 then
-          Dest.Value.SetString(AnsiString('') + PWideChar(LibraryWord));
+        InvokeNativeScriptFunction(Callee.Resolve, Arguments, Code);
 {$ELSE}
-        raise ExceptionExpressionEC.Create('Script DLL calls require 32-bit Windows');
+        raise ExceptionExpressionEC.Create('Native script libraries are disabled');
 {$ENDIF}
       end
       else if Callee.RealVType = vkExternFun then
@@ -7486,50 +7448,28 @@ begin
 end;
 
 procedure EF_LibraryFunction(av: array of TVarEC; code: TCodeEC);
+{$IFDEF NATIVE_SCRIPT_MODS}
 var
   i: Integer;
-  Proc: Pointer;
-  KindName: WideString;
+  Signature: WideString;
+{$ENDIF}
 begin
   if High(av) < 3 then
     Exit;
-  Proc := ScriptLibraryProc(av[1].GetDword, PAnsiChar(AnsiString(av[3].GetString)));
-  if Proc = nil then
+{$IFDEF NATIVE_SCRIPT_MODS}
+  if FreeNativeScriptLibrary(av[1].GetDword) then
   begin
-    av[0].SetInt(0);
-    Exit;
+    Signature := av[2].GetString + ',' + av[3].GetString;
+    for i := 4 to High(av) do
+      Signature := Signature + ',' + av[i].GetString;
+    if InitNativeScriptFunction(av[0], av[1].GetDword, av[3].GetString, Signature) then
+    begin
+      av[0].SetString(NativeScriptLibraryName(av[1].GetDword) + ',' + av[3].GetString);
+      Exit;
+    end;
   end;
-  av[0].ConvertToKind(vkLibraryFun);
-  SetLength(av[0].LibraryFunData, 2 + High(av) - 3);
-  if av[2].GetString = 'int' then
-    av[0].LibraryFunData[0] := 1
-  else if av[2].GetString = 'dword' then
-    av[0].LibraryFunData[0] := 2
-  else if av[2].GetString = 'float' then
-    av[0].LibraryFunData[0] := 3
-  else if av[2].GetString = 'str' then
-    av[0].LibraryFunData[0] := 4
-  else
-    av[0].LibraryFunData[0] := 0;
-  av[0].LibraryFunData[1] := Dword(Proc);
-  for i := 0 to High(av) - 3 - 1 do
-  begin
-    KindName := av[4 + i].GetString;
-    if KindName = 'int' then
-      av[0].LibraryFunData[2 + i] := 1
-    else if KindName = 'dword' then
-      av[0].LibraryFunData[2 + i] := 2
-    else if KindName = 'float' then
-      av[0].LibraryFunData[2 + i] := 3
-    else if KindName = 'str' then
-      av[0].LibraryFunData[2 + i] := 4
-    else if KindName = 'ref' then
-      av[0].LibraryFunData[2 + i] := 5
-    else if KindName = 'code' then
-      av[0].LibraryFunData[2 + i] := 6
-    else
-      raise ExceptionExpressionEC.Create('LibraryFunction. Unknown type');
-  end;
+{$ENDIF}
+  av[0].SetInt(0);
 end;
 
 procedure EF_New(av: array of TVarEC; code: TCodeEC);

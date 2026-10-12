@@ -260,6 +260,22 @@ Applying the setting reloads the interface.
   `TGalaxy.ComputeIntegrityChecksum` in `source/game/aGalaxy.pas` still returns zero.
   Active protected state, resource CRC checks/snapshot refresh, the daily shared RNG
   draw, save layouts, local scores and score-file export remain.
-- Script DLL calls and the original Steam/MatrixGame wrappers remain limited to 32-bit
-  Windows. See `platform/GameScriptLibrary.pas`, `source/SimpleSteamApi.pas` and
-  `source/game/Robot.pas`.
+- External script DLLs are not loaded: FPC objects do not share the original game's
+  layout and VMT ABI, including on Win32. See `platform/GameScriptLibrary.pas`.
+  The original Steam/MatrixGame wrappers remain limited to 32-bit Windows; see
+  `source/SimpleSteamApi.pas` and `source/game/Robot.pas`.
+
+## Optional native mods
+
+- **Utility Functions Pack.** The original mod's script functions work across
+  platforms through `source/mods/UtilityFunctionsPack.pas`, retaining DLL behavior
+  and saved import names. String results preserve Unicode beyond the original
+  game's ANSI codepage. Its configuration and script resources are still required.
+- **AutoSearch.** `source/mods/AutoSearch.pas` provides the original mod's equipment
+  search across platforms, preserving filter behavior and result order. Its
+  configuration and script resources are still required.
+- **Build switches.** Both replacements are enabled by default in
+  `source/mods/NativeMods.inc`. Uncomment `DISABLE_UTILITY_FUNCTIONS_PACK` or
+  `DISABLE_AUTOSEARCH` there, or pass the same symbols with FPC's `-d` option, to
+  omit either integration. Disabled or unsupported imports report an unavailable
+  library; they never fall back to the original DLL.

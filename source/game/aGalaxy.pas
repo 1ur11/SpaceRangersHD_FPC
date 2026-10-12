@@ -237,7 +237,7 @@ type
 
   TDominatorSeriesSet = set of TDominatorSeries;
 
-  TGalaxy = class(TObjectEx)
+  TGalaxy = class(TRegisteredGameObject)
     NextConstellationId: Cardinal;
     NextStarId: Cardinal;
     NextHoleId: Cardinal;
@@ -612,7 +612,7 @@ type
     function CountShipsByTypeMask(ShipTypeMask: TShipTypeMask): Integer;
   end;
 
-  THole = class(TObjectEx)
+  THole = class(TRegisteredGameObject)
     Id: Cardinal;
     Star1: TStar;
     Position1: TPointF;
@@ -845,6 +845,12 @@ function GetLocalObjectLink(Obj: TObject; Suppress: Boolean): WideString;
 implementation
 
 uses
+{$IFDEF NATIVE_UTILITY_FUNCTIONS_PACK}
+  UtilityFunctionsPack,
+{$ENDIF}
+{$IFDEF NATIVE_AUTOSEARCH}
+  AutoSearch,
+{$ENDIF}
 {$IFDEF MSWINDOWS}
   Windows,
 {$ENDIF}
@@ -1082,6 +1088,12 @@ var
   Stored: TStoredItem;
   ResourceFailure: Boolean;
 begin
+{$IFDEF NATIVE_UTILITY_FUNCTIONS_PACK}
+  ResetUtilityFunctionsPack;
+{$ENDIF}
+{$IFDEF NATIVE_AUTOSEARCH}
+  ResetAutoSearch;
+{$ENDIF}
   Destroying := True;
   if GR_Main.CCInterface.GetProtectedStateXorSeed <> 0 then
     RestoreProtectedState;
@@ -9305,6 +9317,9 @@ begin
   if SpecialSimulationMode <> 0 then
   begin
     AverageRangerCapital := 100000000;
+{$IFDEF NATIVE_UTILITY_FUNCTIONS_PACK}
+    ApplyUtilityFunctionsCapitalOverride(AverageRangerCapital);
+{$ENDIF}
     Exit;
   end;
   WealthiestRanger := nil;
@@ -9346,6 +9361,9 @@ begin
     AverageRangerCapital := MaxInt
   else
     AverageRangerCapital := Total;
+{$IFDEF NATIVE_UTILITY_FUNCTIONS_PACK}
+  ApplyUtilityFunctionsCapitalOverride(AverageRangerCapital);
+{$ENDIF}
 end;
 
 procedure TGalaxy.RefreshRangerStrengthStats;

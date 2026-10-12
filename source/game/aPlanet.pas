@@ -57,7 +57,7 @@ type
     procedure LoadFromBuffer(Buffer: TBufEC; Galaxy: TGalaxy);
   end;
 
-  TPlanet = class(TObjectEx)
+  TPlanet = class(TRegisteredGameObject)
     Id: Cardinal;
     GenerationSeed: Cardinal;
     RandomState: Cardinal;

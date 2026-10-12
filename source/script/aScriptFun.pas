@@ -1310,6 +1310,12 @@ procedure InitializeScriptBuiltinsAndConstants(Scope: TVarArrayEC);
 implementation
 
 uses
+{$IFDEF NATIVE_UTILITY_FUNCTIONS_PACK}
+  UtilityFunctionsPack,
+{$ENDIF}
+{$IFDEF NATIVE_AUTOSEARCH}
+  AutoSearch,
+{$ENDIF}
   BreakMessageGIException,
   aCalc,
   ab_Hit,

@@ -118,7 +118,7 @@ type
     ApplicationCount: Integer;
   end;
 
-  TShip = class(TObjectEx)
+  TShip = class(TRegisteredGameObject)
     Id: Integer;
     Name: WideString;
     TypeNameOverrideKey: WideString;
