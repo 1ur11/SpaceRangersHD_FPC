@@ -5,18 +5,19 @@
 All targets require Python 3.10+ with current patch updates, FPC 3.2.2,
 GNU Make, CMake 3.20+ and Clang 14+. `FPC_BOOTSTRAP` overrides the installed
 compiler used to bootstrap the pinned FPC. Additional SDKs are listed below.
-Android, iOS and Switch also require Ninja. Browser and iOS builds download
-SDL2 and codecs automatically.
+Windows, Android, iOS and Switch also require Ninja. Windows, browser and iOS
+builds download SDL2 and codecs automatically.
 
-Desktop builds also need pkg-config and development libraries for SDL2 2.26+
+Linux and macOS builds also need pkg-config and development libraries for SDL2 2.26+
 (or SDL2-compat), libogg, libvorbis, libjpeg and libpng.
 
 - Linux: binutils and `ld.lld` in addition to Clang.
 - macOS: Xcode command-line tools and Homebrew.
 
-Desktop builds use the host CPU: x86_64 or AArch64. x86_64 requires x86-64-v2
-(SSE4.2 and POPCNT). AVI playback needs `libxvidcore.so.4` on Linux or `xvidcore`
-on macOS; Android and Switch omit AVI playback.
+Linux and macOS builds use the host CPU: x86_64 or AArch64. x86_64 requires x86-64-v2
+(SSE4.2 and POPCNT). AVI playback needs `libxvidcore.so.4` on Linux, `xvidcore`
+on macOS or an `xvidcore.dll` matching the game's CPU on Windows.
+Android and Switch omit AVI playback.
 
 ## Build and run
 
@@ -26,8 +27,9 @@ git submodule update --init --recursive
 ./tools/run.py --game-dir=/path/to/game
 ```
 
-The scripts detect the host OS; `--target=linux` or `--target=macos` selects it
-explicitly. Resources default to `game/` when `--game-dir` is omitted.
+The scripts detect the host OS, defaulting to `linux`, `macos` or `win64`;
+`--target` selects it explicitly. Resources default to `game/` when
+`--game-dir` is omitted.
 
 Compiler jobs are capped at six and the host CPU count; the limit does not adapt to RAM.
 
@@ -54,18 +56,24 @@ library together; SDL and codecs remain system dependencies.
 
 ## Windows
 
-Requires macOS or Linux, [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases)
-and Ninja. Set `LLVM_MINGW` to the unpacked SDK directory.
+On Windows x64, run setup in each PowerShell session. It configures that session
+and caches tools in `.local/windows-tools/` without administrator access.
+Keep the checkout path free of spaces.
 
-```sh
-LLVM_MINGW=/path/to/llvm-mingw ./tools/build.py --target=win32 --release
-./tools/run.py --target=win32 --release --bottle=SR2 --game-dir=/path/to/game
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+. ./tools/setup-windows.ps1
+python tools/build.py --release
+python tools/run.py --release --game-dir='C:\Games\Space Rangers HD'
 ```
 
-Keep `Rangers.exe` and its DLLs together. Use `--target=win64` for a 64-bit build.
+Add `--target=win32` to build and run a 32-bit version. Keep `Rangers.exe` and
+its DLLs together.
 
-The launcher uses CrossOver on macOS or Wine on Linux. `WINE` overrides the
-executable; `--bottle` selects a CrossOver bottle.
+For macOS/Linux cross builds, install [LLVM-MinGW](https://github.com/mstorsjo/llvm-mingw/releases)
+and Ninja, set `LLVM_MINGW` to the SDK directory, and select `--target=win64` or
+`--target=win32`. `run.py` uses CrossOver or Wine; `WINE` overrides the executable
+and `--bottle` selects a CrossOver bottle.
 
 ## Browser
 
@@ -164,5 +172,5 @@ changes in `fpc_sr`, then update the vendor pin when integrating them.
 
 `FPC_COMPILER=/path/to/ppcross386` selects a prebuilt LLVM compiler; the build
 still compiles its target RTL. Compiler changes invalidate RTL and game caches.
-`FPC_SOURCE` retains the bootstrap compiler after the first build to speed up
-cross-CPU compiler development.
+On macOS and Linux, `FPC_SOURCE` retains the bootstrap compiler after the first
+build to speed up cross-CPU compiler development.

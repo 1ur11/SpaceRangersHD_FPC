@@ -7,6 +7,7 @@ Supported platforms:
 
 - Linux x86_64
 - macOS ARM64
+- Windows x86 / x86_64
 - Android ARM64 (8.0+)
 - iOS (15+; tested only in the simulator)
 - WebAssembly (browser)

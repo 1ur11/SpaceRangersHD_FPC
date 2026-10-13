@@ -32,9 +32,14 @@ def add_build_arguments(parser: argparse.ArgumentParser) -> None:
 
 def desktop_target() -> str:
     system = platform.system()
-    if system not in ("Linux", "Darwin"):
+    targets = {"Linux": "linux", "Darwin": "macos", "Windows": "win64"}
+    if system not in targets:
         raise RuntimeError(f"Unsupported desktop host: {system}")
-    return "linux" if system == "Linux" else "macos"
+    return targets[system]
+
+
+def windows_triple(cpu: str) -> str:
+    return {"i386": "i686-w64-mingw32", "x86_64": "x86_64-w64-mingw32"}[cpu]
 
 
 def host_cpu() -> str:

@@ -1,4 +1,4 @@
-"""Cross-compile Windows LLVM builds using the LLVM-MinGW SDK."""
+"""Build Windows binaries natively or with the LLVM-MinGW cross SDK."""
 
 import os
 import platform
@@ -14,7 +14,7 @@ from build_support import (
     copy_if_changed,
     require_tool,
 )
-from targets import ROOT, BuildConfig
+from targets import ROOT, BuildConfig, windows_triple
 
 
 def discover_toolchain() -> Path:
@@ -32,15 +32,19 @@ def discover_toolchain() -> Path:
 
 
 def cmake_options(config: BuildConfig, toolchain: Path, prefix: Path) -> list[str]:
-    triple = "i686-w64-mingw32" if config.cpu == "i386" else "x86_64-w64-mingw32"
+    triple = windows_triple(config.cpu)
+
+    def driver(name: str) -> str:
+        return require_tool(str(toolchain / "bin" / f"{triple}-{name}")).as_posix()
+
     return [
         "-DCMAKE_SYSTEM_NAME=Windows",
         f"-DCMAKE_SYSTEM_PROCESSOR={config.cpu}",
-        f"-DCMAKE_C_COMPILER={toolchain}/bin/{triple}-clang",
-        f"-DCMAKE_CXX_COMPILER={toolchain}/bin/{triple}-clang++",
-        f"-DCMAKE_RC_COMPILER={toolchain}/bin/{triple}-windres",
-        f"-DCMAKE_INSTALL_PREFIX={prefix}",
-        f"-DCMAKE_FIND_ROOT_PATH={prefix};{toolchain}/{triple}",
+        f"-DCMAKE_C_COMPILER={driver('clang')}",
+        f"-DCMAKE_CXX_COMPILER={driver('clang++')}",
+        f"-DCMAKE_RC_COMPILER={driver('windres')}",
+        f"-DCMAKE_INSTALL_PREFIX={prefix.as_posix()}",
+        f"-DCMAKE_FIND_ROOT_PATH={prefix.as_posix()};{toolchain.as_posix()}/{triple}",
         "-DCMAKE_FIND_ROOT_PATH_MODE_PROGRAM=NEVER",
         "-DCMAKE_FIND_ROOT_PATH_MODE_LIBRARY=ONLY",
         "-DCMAKE_FIND_ROOT_PATH_MODE_INCLUDE=ONLY",
@@ -51,16 +55,21 @@ def cmake_options(config: BuildConfig, toolchain: Path, prefix: Path) -> list[st
 
 
 def prepare_native(config: BuildConfig, toolchain: Path, rebuild: bool) -> tuple[Path, Path]:
+    for name in ("cmake", "ninja"):
+        require_tool(name)
     config.create_directories()
     prefix = config.work / "dependencies/prefix"
     options = cmake_options(config, toolchain, prefix)
     build_codecs(config.work, options, rebuild, windows=True)
+    # Native CMake may default to Visual Studio. Keep existing cross-build
+    # generators so their configured build directories remain reusable.
+    generator = ["-G", "Ninja"] if platform.system() == "Windows" else []
     native = build_okgf(
-        config.work, config.release, *options, "-DBUILD_SHARED_LIBS=ON",
+        config.work, config.release, *generator, *options, "-DBUILD_SHARED_LIBS=ON",
         rebuild=rebuild, jobs=build_jobs(),
     )
     libraries = [native / "okgf.dll", native / "SDL2.dll", *prefix.glob("bin/*.dll")]
-    triple = "i686-w64-mingw32" if config.cpu == "i386" else "x86_64-w64-mingw32"
+    triple = windows_triple(config.cpu)
     libraries.append(toolchain / triple / "bin/libunwind.dll")
     for library in libraries:
         copy_if_changed(library, config.binary_directory / library.name)
@@ -78,19 +87,18 @@ def build_windows(config: BuildConfig, rebuild: bool) -> Path:
     from pascal import build_paszlib, compile_pascal, pascal_flags
 
     toolchain = discover_toolchain()
-    native, prefix = prepare_native(config, toolchain, rebuild)
     compiler, flags = prepare_compiler(config, toolchain / "bin")
-    triple = "i686-w64-mingw32" if config.cpu == "i386" else "x86_64-w64-mingw32"
-    flags += [f"-Fl{toolchain / triple / 'lib'}"]
+    native, prefix = prepare_native(config, toolchain, rebuild)
     paszlib = build_paszlib(config.work, compiler, flags, rebuild)
     compile_pascal(config.work, [
         compiler, *flags, *pascal_flags(config.release, paszlib),
         f"-FU{config.units}", f"-FE{config.binary_directory}",
         f"-Fl{native}", f"-Fl{prefix / 'lib'}", ROOT / "source/Rangers.dpr",
-    ], rebuild, config.artifact, tuple(config.binary_directory.glob("*.dll")))
-    verify_binary(config.artifact, config.cpu, toolchain / "bin/llvm-readobj")
+    ], rebuild, config.artifact, tuple(config.binary_directory.glob("*.dll")))  # fmt: skip
+    readobj = require_tool(str(toolchain / "bin/llvm-readobj"))
+    verify_binary(config.artifact, config.cpu, readobj)
     for library in config.binary_directory.glob("*.dll"):
-        verify_binary(library, config.cpu, toolchain / "bin/llvm-readobj")
+        verify_binary(library, config.cpu, readobj)
     return config.artifact
 
 
