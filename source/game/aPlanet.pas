@@ -6264,7 +6264,6 @@ begin
 end;
 
 function TPlanet.CountEquipmentShopItemsInBucket(ItemType: TItemType): Integer;
-// The WeaponCategoryItemType shop bucket counts every weapon subtype.
 var
   i, Count: Integer;
   Item: TItem;
@@ -6275,7 +6274,7 @@ begin
     Item := EquipmentShop[i];
     if (Item.ItemType = ItemType)
         or ((Item.ItemType in [t_IndustrialLaser..t_CustomWeapon])
-            and (ItemType = WeaponCategoryItemType)) then
+            and (ItemType in [t_IndustrialLaser..t_CustomWeapon])) then
       Inc(Count);
   end;
   Result := Count;

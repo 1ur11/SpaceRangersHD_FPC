@@ -215,6 +215,11 @@ Applying the setting reloads the interface.
 
 ## Preserved gameplay quirks and targeted corrections
 
+- **October prerelease fixes.** Script planet-list sorts release their score cells,
+  dialog-rule cleanup finalizes managed strings, and Ether calls reject unsupported
+  objects and missing custom text. Script integer parsing uses digit arithmetic with
+  the same accepted inputs and wrapping behavior. The original CRC register and script
+  library stack fixes are already covered by the port's Pascal CRC and native-call backend.
 - **Native correctness fixes.** Surface-loot clearing stays within its arrays while
   explicitly retaining the original eight occupancy resets that affect duplicate
   placement. Captain portraits retain native zero initialization and player exclusion;
@@ -230,8 +235,8 @@ Applying the setting reloads the interface.
   stop lines; ordinary bearing wrapping remains. Unreferenced native stack placeholders
   in the touched routines were removed.
 - **Shop quotas.** `LegacyPlanetShopQuota` in `source/game/aPlanet.pas` replaces reads
-  past the race table with explicit next-race/station accesses. Weapon-subtype counting,
-  offer selection and RNG consumption remain unchanged.
+  past the race table with explicit next-race/station accesses. All weapon subtypes
+  share one stock bucket, following the October prerelease correction.
 - **Address-dependent item size.** `GetAverageItemSize` in `source/game/aConst.pas`
   explicitly takes the cached food trade-name pointer's low 32 bits as a signed value
   for custom weapons. Treasure hints in `source/game/aPlanet.pas` retain 32-bit

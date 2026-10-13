@@ -787,7 +787,7 @@ begin
   Sign := 1;
   for i := 1 to Count do
     if (Integer(Text[i]) >= Ord('0')) and (Integer(Text[i]) <= Ord('9')) then
-      Result := StrToInt(Text[i]) + Result * 10
+      Result := Result * 10 + (Ord(Text[i]) - Ord('0'))
     else if (Text[i] = '-') and (i = 1) then
       Sign := Sign * -1;
   Result := Sign * Result;

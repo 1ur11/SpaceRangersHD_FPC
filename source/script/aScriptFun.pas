@@ -3590,9 +3590,8 @@ begin
       if GetPlayer.InNormalSpace then
         InPlayerSystem := GetPlayer.CurrentStar = TPlanet(Obj).CurrentStar;
     end
-    // Native constructs but does not raise this exception.
     else
-      Exception.Create('Error.Script Ether objtype');
+      raise Exception.Create('Error.Script Ether objtype');
   end;
   if not (Kind in [pmRadio, pmRadioPlayer]) or (Obj = nil) or InPlayerSystem then
   begin
@@ -3653,7 +3652,7 @@ var
   Kind: TPlayerMessageKind;
   MessageEntry: TMessagePlayer;
 begin
-  if High(av) < 3 then
+  if High(av) < 4 then
     raise Exception.Create('Error.Script Ether');
   av[0].SetInt(0);
   Kind := TPlayerMessageKind(av[2].GetInt);
@@ -3676,9 +3675,8 @@ begin
       if GetPlayer.InNormalSpace then
         InPlayerSystem := GetPlayer.CurrentStar = TPlanet(Obj).CurrentStar;
     end
-    // Native constructs but does not raise this exception.
     else
-      Exception.Create('Error.Script Ether objtype');
+      raise Exception.Create('Error.Script Ether objtype');
   end;
   if not (Kind in [pmRadio, pmRadioPlayer]) or (Obj = nil) or InPlayerSystem then
   begin
@@ -13005,7 +13003,8 @@ begin
           PDouble(Scores[J])^ := PDouble(Scores[J - 1])^;
           PDouble(Scores[J - 1])^ := Score;
         end;
-    // The native routine leaves the allocated score cells unreleased.
+    for I := 0 to Scores.Count - 1 do
+      Dispose(PDouble(Scores[I]));
     Scores.Free;
   end;
   av[0].SetInt(Count);
@@ -13822,7 +13821,8 @@ begin
           PDouble(Scores[J])^ := PDouble(Scores[J - 1])^;
           PDouble(Scores[J - 1])^ := Score;
         end;
-    // The native routine leaves the allocated score cells unreleased.
+    for I := 0 to Scores.Count - 1 do
+      Dispose(PDouble(Scores[I]));
     Scores.Free;
   end;
   av[0].SetInt(Count);
