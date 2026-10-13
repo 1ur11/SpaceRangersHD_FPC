@@ -3,6 +3,13 @@
 Key differences from the recovered Delphi source, compatibility behavior retained by the
 port, and the source files that implement them.
 
+The October source sync removes redundant casts and includes semantic enums, typed tables
+and object references, equipment-cache records, script properties and compiler error
+results. The port retains its captain-health enum, stronger galaxy/weapon parameters,
+pointer-sized handles, signed display geometry and explicit loop outcomes. Binary-matching
+declaration order, opaque property aliases and compiler-specific control-flow scaffolding
+are omitted.
+
 ## Compiler and Delphi semantics
 
 - **Compiler settings.** `source/GameOptions.inc` centralizes wrapping arithmetic,
@@ -220,6 +227,9 @@ Applying the setting reloads the interface.
   objects and missing custom text. Script integer parsing uses digit arithmetic with
   the same accepted inputs and wrapping behavior. The original CRC register and script
   library stack fixes are already covered by the port's Pascal CRC and native-call backend.
+- **Custom weapon levels.** `SF_CreateCustomWeapon` explicitly keeps the low seven bits
+  of the script level, matching the October executable. This avoids depending on Delphi's
+  optimized subrange conversion; it is not a clamp to the usual eight equipment levels.
 - **Native correctness fixes.** Surface-loot clearing stays within its arrays while
   explicitly retaining the original eight occupancy resets that affect duplicate
   placement. Captain portraits retain native zero initialization and player exclusion;

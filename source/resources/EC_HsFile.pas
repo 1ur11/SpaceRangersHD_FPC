@@ -185,11 +185,15 @@ function AnsiAfterFirstDelimiter(Text: AnsiString; Delimiters: AnsiString): Ansi
 
 function MatchLookupKeySuffix(
     var Key: AnsiString;
-    SuffixBytes: Pointer;
+    SuffixBytes: PAnsiChar;
     SuffixLength: Integer
 ): Boolean;
 
-procedure CopyLookupKeySuffix(DestSuffixBytes: Pointer; SuffixLength: Integer; var Key: AnsiString);
+procedure CopyLookupKeySuffix(
+    DestSuffixBytes: PAnsiChar;
+    SuffixLength: Integer;
+    var Key: AnsiString
+);
 
 implementation
 
@@ -1413,7 +1417,7 @@ end;
 
 function MatchLookupKeySuffix(
     var Key: AnsiString;
-    SuffixBytes: Pointer;
+    SuffixBytes: PAnsiChar;
     SuffixLength: Integer
 ): Boolean;
 var
@@ -1428,7 +1432,7 @@ begin
   Result := True;
   for i := First to KeyLength do
   begin
-    if Key[i] <> PAnsiChar(SuffixBytes)[j] then
+    if Key[i] <> SuffixBytes[j] then
     begin
       Result := False;
       Break
@@ -1437,7 +1441,11 @@ begin
   end;
 end;
 
-procedure CopyLookupKeySuffix(DestSuffixBytes: Pointer; SuffixLength: Integer; var Key: AnsiString);
+procedure CopyLookupKeySuffix(
+    DestSuffixBytes: PAnsiChar;
+    SuffixLength: Integer;
+    var Key: AnsiString
+);
 var
   i, j, First, KeyLength: Integer;
 begin
@@ -1449,7 +1457,7 @@ begin
   j := 0;
   for i := First to KeyLength do
   begin
-    PAnsiChar(DestSuffixBytes)[j] := Key[i];
+    DestSuffixBytes[j] := Key[i];
     Inc(j);
   end;
 end;

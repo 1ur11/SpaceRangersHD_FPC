@@ -2034,7 +2034,7 @@ begin
             RangerCount := Galaxy.Rangers.Count;
             for I := 0 to Galaxy.Rangers.Count - 1 do
             begin
-              Ranger := TRanger(Galaxy.Rangers[I]);
+              Ranger := Galaxy.Rangers[I];
               if (GetPlayer <> Ranger) and Ranger.ExcludedFromRating then
               begin
                 Dec(RangerCount);
@@ -2181,8 +2181,7 @@ begin
                 end
                 else
                 begin
-                  ItemType :=
-                      TItemType(PickRandomItemType([Ord(t_FuelTanks)..Ord(t_DefGenerator)]));
+                  ItemType := TItemType(PickRandomItemType(UtilityEquipmentTypes));
                   Seed :=
                       Galaxy.CurrentTurn div 33 * (GetPlayer.DockedTo.Id * (GetPlayer.Rank + 17));
                   Weight :=
@@ -2326,7 +2325,7 @@ begin
       Stage := 18;
       for I := 0 to Galaxy.Scripts.Count - 1 do
       begin
-        Script := TScript(Galaxy.Scripts[I]);
+        Script := Galaxy.Scripts[I];
         Script.RunDialogCode;
       end;
       Stage := 19;
@@ -2700,7 +2699,7 @@ begin
     Star := GetPlayer.CurrentStar.StarDistances[I].Star;
     for J := 0 to Star.Ships.Count - 1 do
     begin
-      Ship := TShip(Star.Ships[J]);
+      Ship := Star.Ships[J];
       if GetPlayer = Ship.InterceptorSourceShip then
       begin
         ShipList := ShipList + Ship.GetFullName(' ') + #13#10;
@@ -2738,7 +2737,7 @@ begin
     Star := GetPlayer.CurrentStar.StarDistances[I].Star;
     for J := 0 to Star.Ships.Count - 1 do
     begin
-      Ship := TShip(Star.Ships[J]);
+      Ship := Star.Ships[J];
       if GetPlayer = Ship.InterceptorSourceShip then
         Ship.ClearIncomingInterceptors;
     end;
@@ -2829,7 +2828,7 @@ begin
     );
   for I := 0 to GetPlayer.CurrentStar.Ships.Count - 1 do
   begin
-    Ship := TShip(GetPlayer.CurrentStar.Ships[I]);
+    Ship := GetPlayer.CurrentStar.Ships[I];
     if (GetPlayer <> Ship)
         and (GetPlayer.DockedTo <> Ship)
         and (not (Ship is TRuins) or GetPlayer.CanSelectShipTarget(Ship))
@@ -3966,7 +3965,7 @@ begin
   Count := 0;
   for I := 0 to GetPlayer.Inventory.Count - 1 do
   begin
-    Item := TItem(GetPlayer.Inventory[I]);
+    Item := GetPlayer.Inventory[I];
     if Item.ItemType = t_MicroModule then
     begin
       Module := Item as TMicroModule;
@@ -4011,7 +4010,7 @@ begin
   if Count > 0 then
     for I := 0 to GetPlayer.Inventory.Count - 1 do
     begin
-      Item := TItem(GetPlayer.Inventory[I]);
+      Item := GetPlayer.Inventory[I];
       if Item.ItemType = t_MicroModule then
       begin
         Module := Item as TMicroModule;
@@ -4045,7 +4044,7 @@ begin
   Module := nil;
   for I := 0 to GetPlayer.Inventory.Count - 1 do
   begin
-    Item := TItem(GetPlayer.Inventory[I]);
+    Item := GetPlayer.Inventory[I];
     if Item.ItemType = t_MicroModule then
     begin
       Module := Item as TMicroModule;
@@ -4942,10 +4941,8 @@ begin
   DominatorPercent := Galaxy.GetFactionControlPercent(sfDominators);
   PiratePercent := Galaxy.GetFactionControlPercent(sfPirates);
   for I := 0 to Galaxy.Stars.Count - 1 do
-    if ((TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar).ControlFaction
-            in [sfDominators, sfPirates])
-        and ((TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar).Constellation.Id
-            <> 20) then
+    if ((GetPlayer.CurrentStar.StarDistances[I].Star).ControlFaction in [sfDominators, sfPirates])
+        and ((GetPlayer.CurrentStar.StarDistances[I].Star).Constellation.Id <> 20) then
     begin
       EnemyStar := GetPlayer.CurrentStar.StarDistances[I].Star;
       Break;
@@ -6412,7 +6409,7 @@ begin
   begin
     for I := Galaxy.GalaxyEvents.Count - 1 downto 0 do
     begin
-      Event := TGalaxyEvent(Galaxy.GalaxyEvents[I]);
+      Event := Galaxy.GalaxyEvents[I];
       if Event.Turn + 1825 < Galaxy.CurrentTurn then
         Break;
       if ((Event.EventType = 'PlayerKillsShip')
@@ -6434,7 +6431,7 @@ begin
     Factor := 1;
     for I := Galaxy.GalaxyEvents.Count - 1 downto 0 do
     begin
-      Event := TGalaxyEvent(Galaxy.GalaxyEvents[I]);
+      Event := Galaxy.GalaxyEvents[I];
       if Event.Turn + 1095 < Galaxy.CurrentTurn then
         Break;
       if Event.EventType = 'PlayerDebtNullified' then
@@ -6883,7 +6880,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -6978,7 +6975,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -7072,7 +7069,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -7167,7 +7164,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -7262,7 +7259,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -7357,7 +7354,7 @@ begin
           for I := 1 to Galaxy.Stars.Count - 1 do
           begin
             IncrementWrapped(Index, BoundA, BoundB);
-            Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+            Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
             if (SeededRandomUnitFloat(
                         GetPlayer.DockedTo.Seed
                             + Star.GenerationSeed
@@ -10632,7 +10629,7 @@ begin
     if not GetPlayer.NoJump then
     begin
       IncrementWrapped(Index, First, Last);
-      Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+      Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
       if not Star.NoComeKling and (Constellations.IndexOf(Star.Constellation) < 0) then
         if (SeededRandomUnitFloat(
                     GetPlayer.DockedTo.Seed
@@ -10799,10 +10796,8 @@ begin
   DominatorPercent := Galaxy.GetFactionControlPercent(sfDominators);
   PiratePercent := Galaxy.GetFactionControlPercent(sfPirates);
   for I := 0 to Galaxy.Stars.Count - 1 do
-    if ((TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar).ControlFaction
-            in [sfCoalition, sfDominators])
-        and ((TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar).Constellation.Id
-            <> 20) then
+    if ((GetPlayer.CurrentStar.StarDistances[I].Star).ControlFaction in [sfCoalition, sfDominators])
+        and ((GetPlayer.CurrentStar.StarDistances[I].Star).Constellation.Id <> 20) then
     begin
       Star := GetPlayer.CurrentStar.StarDistances[I].Star;
       Break;
@@ -11297,7 +11292,7 @@ begin
     if not GetPlayer.NoJump then
     begin
       IncrementWrapped(Index, First, Last);
-      Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+      Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
       if not Star.NoComeKling and (Constellations.IndexOf(Star.Constellation) < 0) then
         if (SeededRandomUnitFloat(
                     GetPlayer.DockedTo.Seed

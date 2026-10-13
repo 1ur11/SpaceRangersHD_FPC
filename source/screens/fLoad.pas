@@ -146,7 +146,7 @@ begin
   Gate.QueueImageLoad(PendingLoads, Owner);
   Gate.Free;
   for I := 0 to High(SpaceImageTemplates) do
-    if TCGaiControlEC(SpaceImageTemplates[I].CacheControl) <> nil then
+    if SpaceImageTemplates[I].CacheControl <> nil then
       TCGaiControlEC(SpaceImageTemplates[I].CacheControl).QueueLoadIfMissing(PendingLoads);
   GlobalCache.QueueNamedLoadIfMissing(PendingLoads, 'GAI', PlayerStar.GetBackgroundImagePath(I));
   QueueConfiguredLoadingAssets(PendingLoads, 'Space');
@@ -176,11 +176,11 @@ begin
   I := 0;
   while PendingLoads.Count - 1 > I do
   begin
-    First := TCacheControlEC(PendingLoads[I]);
+    First := PendingLoads[I];
     J := I + 1;
     while PendingLoads.Count > J do
     begin
-      Second := TCacheControlEC(PendingLoads[J]);
+      Second := PendingLoads[J];
       if (First.ClassName = Second.ClassName) and (First.CacheKey = Second.CacheKey) then
       begin
         Second.Free;
@@ -216,7 +216,7 @@ begin
   Count := PendingLoads.Count;
   for I := 0 to Count - 1 do
   begin
-    Control := TCacheControlEC(PendingLoads[I]);
+    Control := PendingLoads[I];
     Control.AcquireData;
     Control.Release;
     Control.Free;
@@ -238,7 +238,7 @@ begin
           and not ExitScreenLoop
           and not IsStopRequested do
         SysUtils.Sleep(100);
-      Control := TCacheControlEC(PendingLoads[I]);
+      Control := PendingLoads[I];
       if not ExitScreenLoop and not IsStopRequested then
       begin
         Control.AcquireData;
@@ -259,7 +259,7 @@ begin
   PendingLoads := Loads;
   CompletedLoadCount := 0;
   TotalLoadCount := PendingLoads.Count;
-  SetPriority(1);
+  SetPriority(ThreadPriorityLowest);
   if StartImmediately then
     Start;
 end;

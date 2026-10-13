@@ -14,6 +14,7 @@ uses
   EC_Struct;
 
 type
+  TNamedControlEventGI = (nceButtonDown = 1, nceButtonUp, nceMouseMove, nceTextChanged);
 
   TFormSoundGroup = class;
 
@@ -187,7 +188,7 @@ type
     function ContainsPoint(Point: TPoint): Boolean;
     function HitTestCursor: Boolean;
     function FindByNameRecursive(const Name: WideString): TObjectGI;
-    procedure DispatchNamedEvent(EventKind: Integer; Param1: Integer; Param2: Integer);
+    procedure DispatchNamedEvent(EventKind: TNamedControlEventGI; Param1: Integer; Param2: Integer);
     procedure InvalidateChildren(IncludePanels: Boolean);
     function InvalidateScrollOverlap(
         Rect: TRect;
@@ -308,7 +309,7 @@ type
     procedure Present; virtual;
     procedure ProcessNamedControlEvent(
         ControlName: WideString;
-        EventKind: Integer;
+        EventKind: TNamedControlEventGI;
         Param1: Integer;
         Param2: Integer
     ); virtual;
@@ -903,7 +904,7 @@ begin
       if Child.MouseInside = False then
         Child.OnMouseEnter;
       Child.ProcessMouseMove(KeyState, Point);
-      DispatchNamedEvent(3, Point.X, Point.Y);
+      DispatchNamedEvent(nceMouseMove, Point.X, Point.Y);
     end;
     Child := Child.NextSibling;
   end;
@@ -1310,7 +1311,7 @@ begin
   Result.Y := Round(Point.Y * Scale);
 end;
 
-procedure TObjectGI.DispatchNamedEvent(EventKind, Param1, Param2: Integer);
+procedure TObjectGI.DispatchNamedEvent(EventKind: TNamedControlEventGI; Param1, Param2: Integer);
 begin
   if Length(ControlName) > 0 then
     MessageLoop.ProcessNamedControlEvent(ControlName, EventKind, Param1, Param2);
@@ -3100,7 +3101,8 @@ end;
 
 procedure TMessageLoopGI.ProcessNamedControlEvent(
     ControlName: WideString;
-    EventKind, Param1, Param2: Integer
+    EventKind: TNamedControlEventGI;
+    Param1, Param2: Integer
 );
 begin
 end;

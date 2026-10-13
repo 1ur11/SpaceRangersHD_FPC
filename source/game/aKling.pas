@@ -560,7 +560,7 @@ begin
                     ))
             + ' '
             + '-'
-            + IntToStr(Cardinal(Id) mod 100 + 1)
+            + IntToStr(Id mod 100 + 1)
             + '-';
   if Length(GetName) = 0 then
     Name :=
@@ -575,7 +575,7 @@ begin
                     ))
             + ' '
             + '-'
-            + IntToStr(Cardinal(Id) mod 100 + 1)
+            + IntToStr(Id mod 100 + 1)
             + '-';
   ActiveProgramAppliedTurn := 0;
   RefreshCombatSkills;
@@ -664,7 +664,7 @@ begin
           125 * Galaxy.GetEffectiveDifficultyLevel
               + RemapClamped(Galaxy.CurrentTurn, GalaxyWarmupTurns, 22200, 0, 3000)
       );
-  WarRating := -150 * Galaxy.WarDeltaWin[1];
+  WarRating := -150 * Galaxy.WarDeltaWin[sfDominators];
   DistanceRating := 0;
   for I := 0 to Galaxy.Stars.Count - 1 do
     if (CurrentStar.StarDistances[I].Star.ControlFaction <> sfDominators)
@@ -1127,7 +1127,7 @@ begin
       if Galaxy.BlazerLandingPlanetId > 0 then
       begin
         Stage := 4;
-        OrderLanding(Galaxy.IdToPlanet(Galaxy.BlazerLandingPlanetId), False);
+        OrderLanding(TPlanet(Galaxy.IdToPlanet(Galaxy.BlazerLandingPlanetId)), False);
       end
       else
       begin
@@ -1474,7 +1474,7 @@ begin
   for I := 0 to Galaxy.Stars.Count - 1 do
   begin
     IncrementWrapped(Index, 0, Galaxy.Stars.Count - 1);
-    Star := TObject(GetPlayer.CurrentStar.StarDistances[Index].Star) as TStar;
+    Star := GetPlayer.CurrentStar.StarDistances[Index].Star;
     if (Star.Constellation.Id <> 20)
         and ((BlazerShip = nil) or (BlazerShip.CurrentStar <> Star))
         and ((TerronShip = nil) or (TerronShip.CurrentStar <> Star))
@@ -1490,7 +1490,7 @@ begin
           Score := 0;
           for J := 1 to Galaxy.Stars.Count - 1 do
           begin
-            Neighbor := TObject(Star.StarDistances[J].Star) as TStar;
+            Neighbor := Star.StarDistances[J].Star;
             if (Neighbor.ControlFaction = sfCoalition) and (Neighbor.Status.CustomFaction = '') then
               Inc(Score, Star.StarDistances[J].Distance)
             else if Neighbor.Battle <> 0 then
@@ -1649,7 +1649,7 @@ begin
     end;
     Hole := THole.Create;
     Hole.InitializeGraphic('');
-    THoleSE(Hole.Graphic).SetState(1);
+    Hole.Graphic.SetState(1);
     Hole.Star1 := Galaxy.KellerTargetStar;
     Hole.Star2 := Hole.Star1;
     Hole.HoleType := 4;
@@ -1964,7 +1964,7 @@ begin
       Round(Galaxy.ScaleDifficultyExponentially(Galaxy.GetDominatorAggressionLevel, 10, 2));
   ControlThreshold := Round(5 * Galaxy.GetDominatorAggressionLevel / 8) + 80;
   Chance := Round(RemapClamped(ControlPercent, 1, ControlThreshold, BaseChance, 0));
-  Chance := Round(Chance * RemapClamped(Galaxy.WarDeltaWin[1], 0, 10, 1, 0.3));
+  Chance := Round(Chance * RemapClamped(Galaxy.WarDeltaWin[sfDominators], 0, 10, 1, 0.3));
   if Galaxy.CurrentTurn >= 666 then
     if Galaxy.DominatorModLevel = 1 then
       Chance := 400
@@ -2005,7 +2005,7 @@ begin
           NearbyIndex := NextRandomIntRange(1, NearbyRange, Galaxy.RandomState);
           while (Attempts > 0) and (Action = 0) do
           begin
-            TargetStar := TObject(Origin.StarDistances[NearbyIndex].Star) as TStar;
+            TargetStar := Origin.StarDistances[NearbyIndex].Star;
             NearbyIndex := IncrementWrapped(NearbyIndex, 1, NearbyRange);
             Dec(Attempts);
             if (TargetStar.Constellation.Id <> 20)

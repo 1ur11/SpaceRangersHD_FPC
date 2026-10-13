@@ -1269,14 +1269,14 @@ begin
   if Mode = 0 then
   begin
     SwapPointer(A.Inventory, B.Inventory);
-    SwapPointer(A.Hull, B.Hull);
-    SwapPointer(A.FuelTanks, B.FuelTanks);
-    SwapPointer(A.Engine, B.Engine);
-    SwapPointer(A.Radar, B.Radar);
-    SwapPointer(A.Scanner, B.Scanner);
-    SwapPointer(A.RepairRobot, B.RepairRobot);
-    SwapPointer(A.CargoHook, B.CargoHook);
-    SwapPointer(A.DefGenerator, B.DefGenerator);
+    SwapPointer(A.EquipmentCache.Hull, B.EquipmentCache.Hull);
+    SwapPointer(A.EquipmentCache.FuelTanks, B.EquipmentCache.FuelTanks);
+    SwapPointer(A.EquipmentCache.Engine, B.EquipmentCache.Engine);
+    SwapPointer(A.EquipmentCache.Radar, B.EquipmentCache.Radar);
+    SwapPointer(A.EquipmentCache.Scanner, B.EquipmentCache.Scanner);
+    SwapPointer(A.EquipmentCache.RepairRobot, B.EquipmentCache.RepairRobot);
+    SwapPointer(A.EquipmentCache.CargoHook, B.EquipmentCache.CargoHook);
+    SwapPointer(A.EquipmentCache.DefGenerator, B.EquipmentCache.DefGenerator);
     for I := Low(A.Weapons) to High(A.Weapons) do
       SwapPointer(A.Weapons[I], B.Weapons[I]);
     SwapPointer(A.Artefacts, B.Artefacts);

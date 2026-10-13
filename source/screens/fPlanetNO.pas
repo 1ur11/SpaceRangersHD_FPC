@@ -1263,7 +1263,7 @@ begin
   end;
   for I := 0 to GetPlayer.Satellites.Count - 1 do
   begin
-    Satellite := TSatellite(GetPlayer.Satellites[I]);
+    Satellite := GetPlayer.Satellites[I];
     if GetPlayer.CurrentPlanet = Satellite.TargetPlanet then
     begin
       Child := TImageGI(Panel.FirstChild);
@@ -1392,7 +1392,7 @@ begin
   HillRate := 0;
   for I := 0 to GetPlayer.Satellites.Count - 1 do
   begin
-    Satellite := TSatellite(GetPlayer.Satellites[I]);
+    Satellite := GetPlayer.Satellites[I];
     if (GetPlayer.CurrentPlanet = Satellite.TargetPlanet) and (Satellite.BrokenFlag = 0) then
     begin
       WaterRate :=
@@ -1622,8 +1622,7 @@ begin
             SoundManager.PlaySound('Sound.PlanetGet');
             Galaxy.CheckIntegrityChecksum(123);
             if Entry.Item is TArtefactTranclucator then
-              (TObject((Entry.Item as TArtefactTranclucator).Ship) as TTranclucator).OwnerShip :=
-                  GetPlayer;
+              ((Entry.Item as TArtefactTranclucator).Ship as TTranclucator).OwnerShip := GetPlayer;
             if Entry.Item is TGoods then
             begin
               Inc(
@@ -1756,7 +1755,7 @@ begin
   end;
   for I := 0 to GetPlayer.Satellites.Count - 1 do
   begin
-    Result := TSatellite(GetPlayer.Satellites[I]);
+    Result := GetPlayer.Satellites[I];
     if (GetPlayer.CurrentPlanet = Result.TargetPlanet)
         and (Result.TrajectoryIndex = TrajectoryIndex) then
       Exit;
@@ -1821,8 +1820,6 @@ begin
 end;
 
 procedure TfPlanetNO.UpdateItemInfoPopup(Item: TItem);
-const
-  DurableTypes = [0..79] - [0..7, 9, 23..25, 35..38, 42, 69..72, 74..79];
 var
   Equipment: TEquipment;
   BarWidth, CapWidth, MinimumWidth: Integer;
@@ -1877,7 +1874,7 @@ begin
     SetImageKindX(ikxCenter);
     SetImageKindY(ikyCenter);
   end;
-  if not (Byte(Equipment.ItemType) in DurableTypes) and (Equipment.ItemType <> t_Hull) then
+  if not (Equipment.ItemType in RepairableItemTypes) and (Equipment.ItemType <> t_Hull) then
   begin
     with GetByName('InfoDurable') as TImageGI do
       Parent.Parent.SetActive(False);

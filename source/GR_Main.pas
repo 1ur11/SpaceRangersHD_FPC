@@ -4151,7 +4151,7 @@ begin
   DebugCommandMessage := $C000;
   DirectXVersion := $090000;
   CopyGameFile('#ship_c.dbf', '#ship.dbf');
-  AppendLogLineThreadSafe('Build=2.1.2500 (11 August 2026)');
+  AppendLogLineThreadSafe('Build=2.1.2500 (6 October 2026)');
   PerformanceCounterFrequency := SDL_GetPerformanceFrequency;
   if not InitializePackageCollection then
     raise Exception.Create('Error while initializing package files');

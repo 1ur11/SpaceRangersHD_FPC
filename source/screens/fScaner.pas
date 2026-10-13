@@ -1024,7 +1024,7 @@ begin
       Inc(CargoEntryCount);
   for I := 0 to ShipToInspect.Inventory.Count - 1 do
   begin
-    Item := TEquipment(ShipToInspect.Inventory[I]);
+    Item := ShipToInspect.Inventory[I];
     if (Item.EquippedFlag = 0) and (ShipToInspect.GetHull <> Item) then
       Inc(CargoEntryCount);
   end;
@@ -1051,7 +1051,7 @@ begin
     end;
   for I := 0 to ShipToInspect.Inventory.Count - 1 do
   begin
-    Equipment := TEquipment(ShipToInspect.Inventory[I]);
+    Equipment := ShipToInspect.Inventory[I];
     if (Equipment.EquippedFlag = 0) and (ShipToInspect.GetHull <> Equipment) then
     begin
       Dec(Index);
@@ -1066,7 +1066,7 @@ begin
   end;
   for I := 0 to ShipToInspect.Artefacts.Count - 1 do
   begin
-    Equipment := TEquipment(ShipToInspect.Artefacts[I]);
+    Equipment := ShipToInspect.Artefacts[I];
     if Equipment.EquippedFlag = 0 then
     begin
       Dec(Index);
@@ -1556,8 +1556,6 @@ begin
 end;
 
 procedure TfScaner.ShowItemInfo(Item: TItem);
-const
-  DurableTypes = [0..79] - [0..7, 9, 23..25, 35..38, 42, 69..72, 74..79];
 var
   Equipment: TEquipment;
   Portrait: WideString;
@@ -1687,7 +1685,7 @@ begin
         SetImageKindX(ikxCenter);
         SetImageKindY(ikyCenter);
       end;
-      if not (Byte(Equipment.ItemType) in DurableTypes) and (Equipment.ItemType <> t_Hull) then
+      if not (Equipment.ItemType in RepairableItemTypes) and (Equipment.ItemType <> t_Hull) then
       begin
         with GetByName('InfoDurable') as TImageGI do
           Parent.Parent.SetActive(False);

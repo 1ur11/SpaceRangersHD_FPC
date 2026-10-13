@@ -160,7 +160,7 @@ begin
         Hole := GetPlayer.OrderTarget as THole;
         for Index := Galaxy.GalaxyEvents.Count - 1 downto 0 do
         begin
-          Event := TGalaxyEvent(Galaxy.GalaxyEvents[Index]);
+          Event := Galaxy.GalaxyEvents[Index];
           if (Event.EventType = 'PlayerUsesSubportal')
               and (Event.GetData(0) = Integer(Hole.Id))
               and (Event.GetData(1) = Hole.CreatedTurn) then
@@ -173,7 +173,7 @@ begin
       if UsedSubportal then
         for Index := Galaxy.GalaxyEvents.Count - 1 downto 0 do
         begin
-          Event := TGalaxyEvent(Galaxy.GalaxyEvents[Index]);
+          Event := Galaxy.GalaxyEvents[Index];
           if Event.Turn + SubportalRewardPenaltyTurns < Galaxy.CurrentTurn then
             Break;
           if Event.EventType = 'PlayerJumpsThroughSubportal' then
@@ -234,7 +234,7 @@ begin
             Break;
         end;
         if Reward is TArtefactTranclucator then
-          (TObject((Reward as TArtefactTranclucator).Ship) as TTranclucator).OwnerShip := GetPlayer;
+          ((Reward as TArtefactTranclucator).Ship as TTranclucator).OwnerShip := GetPlayer;
       end;
       RandomState := SavedRandomState;
       if Galaxy <> nil then
@@ -401,7 +401,7 @@ begin
           end
           else
           begin
-            ItemType := TItemType(PickRandomItemType([Ord(t_FuelTanks)..Ord(t_DefGenerator)]));
+            ItemType := TItemType(PickRandomItemType(UtilityEquipmentTypes));
             Weight :=
                 RandomRange(
                     Round(GetAverageItemSize(ItemType) * MinSize),
@@ -567,6 +567,8 @@ begin
 end;
 
 procedure TabShipAI.DecideActions;
+const
+  WeaponsRestrictedWhileCruising = [1, 2, 6, 8];
 var
   Index, Score, BestScore: Integer;
   Enemy: TabObject;
@@ -791,7 +793,7 @@ begin
         else if Weapons[PrimaryWeapon].Kind = 17 then
           FirePrimary
         else if Abs(BearingDeltaDegrees) < 5 then
-          if not (Weapons[PrimaryWeapon].Kind in [1, 2, 6, 8])
+          if not (Weapons[PrimaryWeapon].Kind in WeaponsRestrictedWhileCruising)
               or (Thrust <= 1.25)
               or (Abs(TurnInput) >= 0.01) then
             FirePrimaryAt(Enemy);
@@ -805,7 +807,7 @@ begin
         else if Weapons[SecondaryWeapon].Kind = 12 then
           FireSecondaryAt(Enemy)
         else if Abs(BearingDeltaDegrees) < 5 then
-          if not (Weapons[SecondaryWeapon].Kind in [1, 2, 6, 8])
+          if not (Weapons[SecondaryWeapon].Kind in WeaponsRestrictedWhileCruising)
               or (Thrust <= 1.25)
               or (Abs(TurnInput) >= 0.01) then
             FireSecondaryAt(Enemy);

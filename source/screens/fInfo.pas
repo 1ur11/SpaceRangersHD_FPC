@@ -1593,7 +1593,7 @@ var
             Heading + #13#10 + Description,
             0,
             0,
-            Integer(Cardinal(Station.Id) or $80000000)
+            Integer(Station.Id or $80000000)
         );
         AddInfoText(' .', taxCenter, '');
         AddInfoImageText(
@@ -2473,7 +2473,7 @@ begin
       begin
         if ResultCount >= GetSearchResultLimit then
           Break;
-        Star := TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar;
+        Star := GetPlayer.CurrentStar.StarDistances[I].Star;
         if (Star.Id = 71) or (Star.Id = 72) then
           Continue;
         if (RangeFilter <> 0)
@@ -2486,7 +2486,7 @@ begin
           begin
             if ResultCount >= GetSearchResultLimit then
               Break;
-            Planet := TPlanet(Star.Planets[Index]);
+            Planet := Star.Planets[Index];
             if Planet.OwnerId in [oiMaloc..oiGaal, oiPirate] then
             begin
               Heading := '';
@@ -2595,7 +2595,7 @@ begin
           Planet := nil;
           for Index := 0 to Star.Ships.Count - 1 do
           begin
-            Ship := TShip(Star.Ships[Index]);
+            Ship := Star.Ships[Index];
             if (Ship is TRuins)
                 and ((Ship.CurrentPlanet = nil)
                     or (Ship.CurrentPlanet.OwnerId <> oiUninhabited)) then
@@ -2701,7 +2701,7 @@ begin
                       Heading + #13#10 + Description,
                       0,
                       0,
-                      Integer(Cardinal(Station.Id) or $80000000)
+                      Integer(Station.Id or $80000000)
                   );
                   AddInfoText(' .', taxCenter, '');
                   AddInfoImageText(
@@ -2732,7 +2732,7 @@ begin
     end;
     for I := 0 to Galaxy.Stars.Count - 1 do
     begin
-      Star := TObject(GetPlayer.CurrentStar.StarDistances[I].Star) as TStar;
+      Star := GetPlayer.CurrentStar.StarDistances[I].Star;
       if Star.Constellation.Id <> 20 then
       begin
         if SelectedSearchCategory = 0 then
@@ -2745,7 +2745,7 @@ begin
         Planet := nil;
         for Index := 0 to Star.Ships.Count - 1 do
         begin
-          Ship := TShip(Star.Ships[Index]);
+          Ship := Star.Ships[Index];
           if (Ship.CurrentPlanet = nil) or (Ship.CurrentPlanet.OwnerId <> oiUninhabited) then
           begin
             if SelectedSearchCategory = 0 then
@@ -2781,7 +2781,7 @@ begin
             begin
               for ItemIndex := 0 to (Ship as TRuins).EquipmentShop.Count - 1 do
               begin
-                Item := TItem(TRuins(Ship).EquipmentShop[ItemIndex]);
+                Item := TRuins(Ship).EquipmentShop[ItemIndex];
                 if SelectedSearchCategory = 0 then
                 begin
                   if ItemMatchesInfoSearch(Item, SearchText) then
@@ -2795,7 +2795,7 @@ begin
         end;
         for Index := 0 to Star.Planets.Count - 1 do
         begin
-          Planet := TPlanet(Star.Planets[Index]);
+          Planet := Star.Planets[Index];
           if SelectedSearchCategory = 0 then
           begin
             if FindLowercaseInfoText(SearchText, WideLowerCase(Planet.GetFullName(' '))) > 0 then
@@ -2827,7 +2827,7 @@ begin
             else
               for ItemIndex := 0 to Planet.EquipmentShop.Count - 1 do
               begin
-                Item := TItem(Planet.EquipmentShop[ItemIndex]);
+                Item := Planet.EquipmentShop[ItemIndex];
                 if SelectedSearchCategory = 0 then
                 begin
                   if ItemMatchesInfoSearch(Item, SearchText) then
@@ -2838,7 +2838,7 @@ begin
               end;
             for ItemIndex := 0 to Planet.Warriors.Count - 1 do
             begin
-              Ship := TShip(Planet.Warriors[ItemIndex]);
+              Ship := Planet.Warriors[ItemIndex];
               if Ship.CurrentStar.Ships.IndexOf(Ship) < 0 then
               begin
                 if SelectedSearchCategory = 0 then

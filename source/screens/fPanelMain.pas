@@ -1332,7 +1332,7 @@ begin
     RebuildMessageButtons(True);
     if AuxiliaryItems.Count > 0 then
     begin
-      MessageEntry := TMessagePlayer(AuxiliaryItems[0]);
+      MessageEntry := AuxiliaryItems[0];
       Control := MessagePanel.FirstChild;
       while Control <> nil do
       begin
@@ -1478,7 +1478,7 @@ begin
       begin
         if StarMapScreen.Mode = smmOrders then
         begin
-          Ship := TObject(Galaxy.IdToShip(DisplayedShipId, False)) as TShip;
+          Ship := Galaxy.IdToShip(DisplayedShipId, False) as TShip;
           if (Ship <> nil)
               and Ship.InNormalSpace
               and (Ship.CurrentStar = GetPlayer.CurrentStar) then
@@ -1504,7 +1504,7 @@ begin
       begin
         if StarMapScreen.Mode = smmOrders then
         begin
-          Planet := TObject(Galaxy.IdToPlanet(DisplayedPlanetId, False)) as TPlanet;
+          Planet := Galaxy.IdToPlanet(DisplayedPlanetId, False) as TPlanet;
           if (Planet <> nil) and (Planet.CurrentStar = GetPlayer.CurrentStar) then
           begin
             StarMapScreen.SetMapCenterManually(TruncatePointF(Planet.GetPosition));

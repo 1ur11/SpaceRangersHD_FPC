@@ -46,6 +46,7 @@ You need your own game data. Releases are built automatically from source change
 
 Development uses LLMs such as GPT-6 Astra through Codex.
 
-The source was generated from
-[SpaceRangersHD_decomp at `7342a10`](https://github.com/pakompom/SpaceRangersHD_decomp/tree/7342a10dc1a0dcaa242ea4bc8c33e29c0eb6bdc0),
-which reconstructs the **2026-08-11 prerelease** build.
+The port follows the recovered source from
+[SpaceRangersHD_decomp at `cd488c5`](https://github.com/pakompom/SpaceRangersHD_decomp/tree/cd488c5be075beec9e97e54c2dd92a7ff8e5b1a7),
+which reconstructs the **2026-10-06 prerelease** build. It retains the platform
+adaptations and behavior corrections described in [CHANGES.md](CHANGES.md).
