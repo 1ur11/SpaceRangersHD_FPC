@@ -267,7 +267,6 @@ uses
   EC_Str,
   Math,
   Globals,
-  SimpleSteamApi,
   aScript,
   aKling,
   fEquipmentShop,

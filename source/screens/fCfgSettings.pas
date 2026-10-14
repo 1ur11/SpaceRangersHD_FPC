@@ -101,7 +101,6 @@ implementation
 uses
   GameWindow,
   GameSystem,
-  SimpleSteamApi,
   aGalaxyStruct,
   GameInput,
   Classes,
@@ -314,7 +313,7 @@ begin
       Break;
     end;
   end;
-  if not SteamInitialized and (RequestedLanguage = '') then
+  if RequestedLanguage = '' then
   begin
     AddOptionLabel('Lang', LocalizedText('FormCfgSettings.Lang'), True);
     if (AvailableLanguageCodes <> '') and (CountDelimitedPartsW(AvailableLanguageCodes, ',') > 0) then
@@ -1913,7 +1912,7 @@ begin
   RestartNeeded := False;
   ResetNeeded := False;
   ActiveGroupIndex := 0;
-  if not SteamInitialized and (RequestedLanguage = '') then
+  if RequestedLanguage = '' then
   begin
     Language := ExtractDelimitedPartW(AvailableLanguageCodes, GetOptionValue('Lang'), ',');
     // With no enumerated languages, the UI displays SelectedLanguage itself.

@@ -7,7 +7,7 @@ interface
 uses
   GI_MessageLoop,
   GI_Image,
-  SimpleSteamApi,
+  Achievements,
   Types;
 
 type
@@ -46,7 +46,6 @@ uses
   Classes,
   SysUtils,
   Math,
-  Achievements,
   EC_BlockPar,
   GI_GraphBuf,
   GI_GraphButton,

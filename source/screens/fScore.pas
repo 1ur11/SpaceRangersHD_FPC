@@ -115,7 +115,6 @@ uses
   GlobalsV,
   Globals,
   aGalaxy,
-  SimpleSteamApi,
   aConst,
   aMyFunction,
   aRanger,
@@ -473,10 +472,8 @@ begin
   Encoded := TBufEC.Create;
   Seed := RandomIntRange(0, 2000000000);
   SaveToBuffer(Buffer);
-  if SteamInitialized then
-    Buffer.AddAnsiStringZ(IntToStr(SteamUserId))
-  else
-    Buffer.AddAnsiStringZ(IntToStr(0));
+  // Preserve the score export's external-account field for file compatibility.
+  Buffer.AddAnsiStringZ('0');
   Buffer.CompressZlibPayloadInPlace(False);
   Buffer.ApplyDatXorCipher(Seed);
   Encoded.AddIntegerValue(3);

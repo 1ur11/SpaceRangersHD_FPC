@@ -111,8 +111,7 @@ uses
   GI_MessageLoop,
   SE_SoundRnd,
   WStringUtils,
-  NoSteamAchievemens,
-  SimpleSteamApi,
+  LocalAchievements,
   GI_MessageBox,
   SE_Gate,
   aCalc,
@@ -321,14 +320,7 @@ type
     procedure ApplicationDeactivated(Sender: TObject);
   end;
 
-  TSteamCallbacksThread = class(TThreadEC)
-  public
-
-    procedure Execute; override;
-  end;
-
 var
-  SteamCallbackThread: TSteamCallbacksThread = nil;
   ApplicationEvents: TAD;
   StartupTime: SysUtils.TSystemTime;
   ArgumentIndex: Integer;
@@ -341,28 +333,10 @@ var
   WineGetBuildId: TWineGetBuildId;
   WineHostOS: PAnsiChar;
   WineHostVersion: PAnsiChar;
-  LanguageBuffer: PStartupWideString;
   LanguageFileName: AnsiString;
   LanguageLine: AnsiString;
   StartupText: WideString;
   LanguageFile: TextFile;
-
-procedure TSteamCallbacksThread.Execute;
-var
-  CurrentTick, LastCallbackTick: Cardinal;
-begin
-  LastCallbackTick := GameTickCount;
-  while not IsStopRequested do
-  begin
-    CurrentTick := GameTickCount;
-    if CurrentTick - LastCallbackTick > 200 then
-    begin
-      SteamRunCallbacks;
-      LastCallbackTick := CurrentTick;
-    end;
-    SysUtils.Sleep(100);
-  end;
-end;
 
 procedure HandleApplicationActivated;
 var
@@ -529,67 +503,26 @@ begin
           InitializeAchievementDefinitions;
           if not SkipModsOnReload then
             InitializePlatformRuntimeAndMainWindow;
-          SteamInitialized := False;
           if InstallConfig.CountParamsByPath('GameDistributor') > 0 then
+            AppendLogLineThreadSafe('Game data distributor=' + InstallConfig.GetParamByPathOrMarker('GameDistributor'));
+          SelectedLanguage := 'english';
+          AvailableLanguageCodes := CollectInstallLanguageCodes;
+          LanguageFileName := AnsiString(GetGameUserDirectory + 'Lang.txt');
+          if FileExists(NativeGamePath(LanguageFileName)) then
           begin
-            StartupText := WideString(LowerCase(AnsiString(InstallConfig.GetParamByPathOrMarker('GameDistributor'))));
-            if StartupText = 'steam' then
+            AssignFile(LanguageFile, NativeGamePath(LanguageFileName));
+            Reset(LanguageFile);
+            while not Eof(LanguageFile) do
             begin
-              AppendLogLineThreadSafe('GameDistributor=Steam');
-              try
-                LoadSteamApi;
-                SetLength(SelectedLanguage, 255);
-                SetLength(AvailableLanguageCodes, 255);
-                SteamInitialized := SteamInit(SelectedLanguage, AvailableLanguageCodes);
-                if not SteamInitialized then
-                  AppendLogLineThreadSafe('Steam not initialized');
-              except
-                on E: Exception do
-                  AppendLogLineThreadSafe('Steam: ' + E.Message);
-              end;
-            end
-            else if StartupText = 'gog' then
-              AppendLogLineThreadSafe('GameDistributor=GOG')
-            else
-              AppendLogLineThreadSafe(
-                  AnsiString('GameDistributor=Unknown(' + InstallConfig.GetParamByPathOrMarker('GameDistributor') + ')')
-              );
-          end
-          else
-            AppendLogLineThreadSafe('GameDistributor=None');
-          if SteamInitialized then
-          begin
-            LanguageBuffer := @SelectedLanguage;
-            TruncateStartupWideString(LanguageBuffer);
-            LanguageBuffer := @AvailableLanguageCodes;
-            TruncateStartupWideString(LanguageBuffer);
-          end
-          else
-          begin
-            SelectedLanguage := 'english';
-            AvailableLanguageCodes := CollectInstallLanguageCodes;
-            LanguageFileName := AnsiString(GetGameUserDirectory + 'Lang.txt');
-            if FileExists(NativeGamePath(LanguageFileName)) then
-            begin
-              AssignFile(LanguageFile, NativeGamePath(LanguageFileName));
-              Reset(LanguageFile);
-              while not Eof(LanguageFile) do
-              begin
-                Readln(LanguageFile, LanguageLine);
-                StartupText := WideString(LanguageLine);
-                if CountDelimitedPartsW(StartupText, '=') > 1 then
-                  if ExtractDelimitedPartW(StartupText, 0, '=') = 'Lang' then
-                    SelectedLanguage := TrimWideString(ExtractDelimitedPartW(StartupText, 1, '='));
-              end;
-              CloseFile(LanguageFile);
+              Readln(LanguageFile, LanguageLine);
+              StartupText := WideString(LanguageLine);
+              if CountDelimitedPartsW(StartupText, '=') > 1 then
+                if ExtractDelimitedPartW(StartupText, 0, '=') = 'Lang' then
+                  SelectedLanguage := TrimWideString(ExtractDelimitedPartW(StartupText, 1, '='));
             end;
+            CloseFile(LanguageFile);
           end;
           LoadLanguageAndPackages;
-          if SteamInitialized then
-          begin
-            InitializeSteamAchievements;
-            SteamInitialized := SteamLocal(214730);
-          end;
           InitializeScriptHostRuntime;
           LoadLocalAchievements;
           RunningUnderWine := False;
@@ -663,10 +596,6 @@ begin
             InitializeRuntimeAndSettings;
             InitializeGlobalUiRuntime;
             InitializeRobotRuntime;
-            if SteamCallbackThread = nil then
-              SteamCallbackThread := TSteamCallbacksThread.Create;
-            if not SteamCallbackThread.IsRunning and SteamInitialized then
-              SteamCallbackThread.Start;
 
             if Galaxy <> nil then
             begin
@@ -725,9 +654,6 @@ begin
             MemorySnapshotActive := False;
           end;
           FreeAllRandomSounds;
-          // Join the callback worker before unloading the code it can still call.
-          FreeAndNil(SteamCallbackThread);
-          UnloadSteamApi;
           FinalizeScriptHostRuntime;
           FinalizePlatformRuntime;
           if StartupCleanupObject <> nil then
@@ -777,7 +703,6 @@ begin
           end;
           try
             FreeAndNil(NewGameGenerationThread);
-            FreeAndNil(SteamCallbackThread);
             FinalizeSaveWriter(False);
             if Galaxy <> nil then
             begin
