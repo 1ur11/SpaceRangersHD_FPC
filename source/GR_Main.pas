@@ -1102,8 +1102,6 @@ var
 
   BuildVersionMismatch: Boolean = False;
 
-  SessionLogLock: TCriticalSection = nil;
-
   DebugKeyCallback: TDebugKeyCallbackGR = nil;
 
   CustomCursorEnabled: Boolean = True;
@@ -1165,8 +1163,6 @@ var
   CacheDataRoot: TDataEC;
 
   GlobalCache: TCacheEC;
-
-  SessionLog: TextFile;
 
   SavePreviewGraph: TGraphBufGR;
 
@@ -1876,8 +1872,6 @@ procedure ApplyProcessAffinity;
 
 procedure CheckRuntimeWatchdog;
 
-procedure CreateStartupLogFile;
-
 procedure InitializePlatformRuntimeAndMainWindow;
 
 procedure LoadLanguageAndPackages;
@@ -2049,14 +2043,6 @@ function GiScalePixels(Value: Integer): Integer;
 
 function GiScalePixelsEx(Value: Integer; AlternateValue: Integer): Integer;
 
-procedure AppendLogLineThreadSafe(const Text: AnsiString);
-
-procedure AppendLogTextThreadSafe(const Text: AnsiString);
-
-procedure AppendDebugLogLine(const Text: AnsiString);
-
-procedure AppendOptionalDebugLogLine(const Text: AnsiString);
-
 procedure WriteTextFileThreadSafe(FileName: AnsiString; Text: AnsiString);
 
 function IsInstallFeatureEnabled(const Path: WideString): Boolean;
@@ -2101,6 +2087,7 @@ procedure LogPresentationParameters;
 implementation
 
 uses
+  GameDiagnostics,
   GameGraphics,
   GameAudio,
   aSaveLoad,
@@ -2129,6 +2116,7 @@ uses
   SysUtils;
 
 var
+  DebugTextFileLock: TRTLCriticalSection;
   LastWindowMessageTick: Cardinal;
   MessageIdle: Boolean;
   PendingDisplayChange: Boolean;
@@ -2140,21 +2128,44 @@ var
 procedure LogMemoryUsage;
 var
   Status: TMemoryStatusEx;
+  Heap: TFPCHeapStatus;
 begin
   Status.Length := SizeOf(Status);
   QueryGameMemory(Status);
-  AppendLogLineThreadSafe('Memory Info');
-  AppendLogLineThreadSafe('Physical Memory:');
-  AppendLogLineThreadSafe('Used=' + SysUtils.IntToStr((Status.TotalPhys - Status.AvailPhys) shr 10) + ' KB');
-  AppendLogLineThreadSafe('Available=' + SysUtils.IntToStr(Status.AvailPhys shr 10) + ' KB');
-  AppendLogLineThreadSafe('Total=' + SysUtils.IntToStr(Status.TotalPhys shr 10) + ' KB');
-  AppendLogLineThreadSafe('Virtual Memory:');
-  AppendLogLineThreadSafe('Used=' + SysUtils.IntToStr((Status.TotalVirtual - Status.AvailVirtual) shr 10) + ' KB');
-  AppendLogLineThreadSafe('Available=' + SysUtils.IntToStr(Status.AvailVirtual shr 10) + ' KB');
-  AppendLogLineThreadSafe('Total=' + SysUtils.IntToStr(Status.TotalVirtual shr 10) + ' KB');
+  LogGameMessage(
+      gllWarning,
+      'memory',
+      'Physical memory: total='
+          + IntToStr(Status.TotalPhys shr 20)
+          + ' MiB; available estimate='
+          + IntToStr(Status.AvailPhys shr 20)
+          + ' MiB'
+  );
+{$IFDEF MSWINDOWS}
+  LogGameMessage(
+      gllWarning,
+      'memory',
+      'Virtual address space: total='
+          + IntToStr(Status.TotalVirtual shr 20)
+          + ' MiB; available='
+          + IntToStr(Status.AvailVirtual shr 20)
+          + ' MiB'
+  );
+{$ELSE}
+  Heap := GetFPCHeapStatus;
+  LogGameMessage(
+      gllWarning,
+      'memory',
+      'Pascal heap: reserved='
+          + IntToStr(QWord(Heap.CurrHeapSize) shr 20)
+          + ' MiB; used='
+          + IntToStr(QWord(Heap.CurrHeapUsed) shr 20)
+          + ' MiB'
+  );
+{$ENDIF}
   if GlobalCache <> nil then
-    AppendLogLineThreadSafe('Cache Size=' + SysUtils.IntToStr(GlobalCache.ResidentBytes shr 10) + ' KB');
-  AppendLogLineThreadSafe('Textures Cache Size=' + SysUtils.IntToStr(Int64(ResidentTextureBytes shr 10)) + ' KB');
+    LogGameMessage(gllWarning, 'memory', 'Resource cache resident=' + IntToStr(GlobalCache.ResidentBytes shr 10) + ' KiB');
+  LogGameMessage(gllWarning, 'memory', 'Texture cache resident=' + IntToStr(Int64(ResidentTextureBytes shr 10)) + ' KiB');
 end;
 
 constructor TCCInterface.Create;
@@ -2533,7 +2544,8 @@ begin
   try
     Result := OKGF_MulTable256x256;
   except
-    raise Exception.Create('Error in OKGF_MulTable256x256');
+    AddCurrentGameExceptionContext('OKGF_MulTable256x256');
+    raise;
   end;
 end;
 
@@ -2542,7 +2554,8 @@ begin
   try
     Result := OKGF_ReadStart_Buf(Source, SourceSize, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_ReadStart_Buf');
+    AddCurrentGameExceptionContext('OKGF_ReadStart_Buf');
+    raise;
   end;
 end;
 
@@ -2557,7 +2570,8 @@ begin
   try
     Result := OKGF_Read(Context, Pixels, PitchBytes, RedMask, GreenMask, BlueMask, AlphaMask, BytesPerPixel);
   except
-    raise Exception.Create('Error in OKGF_Read');
+    AddCurrentGameExceptionContext('OKGF_Read');
+    raise;
   end;
 end;
 
@@ -2570,7 +2584,8 @@ begin
   try
     Result := OKGF_ReadStartPal_Buf(Source, SourceSize, Width, Height, PaletteCount, BytesPerPixel);
   except
-    raise Exception.Create('Error in OKGF_ReadStartPal_Buf');
+    AddCurrentGameExceptionContext('OKGF_ReadStartPal_Buf');
+    raise;
   end;
 end;
 
@@ -2579,7 +2594,8 @@ begin
   try
     Result := OKGF_ReadPal(Context, Pixels, PitchBytes, Palette);
   except
-    raise Exception.Create('Error in OKGF_ReadPal');
+    AddCurrentGameExceptionContext('OKGF_ReadPal');
+    raise;
   end;
 end;
 
@@ -2596,7 +2612,8 @@ begin
   try
     Result := OKGF_Write_PNG_File(PAnsiChar(NativeName), Pixels, PitchBytes, Width, Height, HasAlpha, SwapRedBlue);
   except
-    raise Exception.Create('Error in OKGF_Write_PNG_File');
+    AddCurrentGameExceptionContext('OKGF_Write_PNG_File');
+    raise;
   end;
 end;
 
@@ -2631,7 +2648,8 @@ begin
             Height
         );
   except
-    raise Exception.Create('Error in OKGF_Write_BMP_File');
+    AddCurrentGameExceptionContext('OKGF_Write_BMP_File');
+    raise;
   end;
 end;
 
@@ -2640,7 +2658,8 @@ begin
   try
     OKGR_AlphaBuf_Draw_RGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_AlphaBuf_Draw_RGBA');
+    AddCurrentGameExceptionContext('OKGR_AlphaBuf_Draw_RGBA');
+    raise;
   end;
 end;
 
@@ -2649,7 +2668,8 @@ begin
   try
     OKGR_TransAlphaBuf_Draw_RGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_TransAlphaBuf_Draw_RGBA');
+    AddCurrentGameExceptionContext('OKGR_TransAlphaBuf_Draw_RGBA');
+    raise;
   end;
 end;
 
@@ -2658,7 +2678,8 @@ begin
   try
     OKGR_AlphaIndexed_Draw_RGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_Draw_RGBA');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_Draw_RGBA');
+    raise;
   end;
 end;
 
@@ -2667,7 +2688,8 @@ begin
   try
     OKGR_AlphaIndexed_AlphaDraw_RGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_AlphaDraw_RGBA');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_AlphaDraw_RGBA');
+    raise;
   end;
 end;
 
@@ -2676,7 +2698,8 @@ begin
   try
     OKGR_TransBuf_Draw_RGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_Draw_RGBA');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_Draw_RGBA');
+    raise;
   end;
 end;
 
@@ -2685,7 +2708,8 @@ begin
   try
     OKGR_TransBuf_DrawClip_WORD(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_DrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_DrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -2694,7 +2718,8 @@ begin
   try
     OKGR_TransBuf_HADrawClip_16(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_HADrawClip_16');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_HADrawClip_16');
+    raise;
   end;
 end;
 
@@ -2703,7 +2728,8 @@ begin
   try
     Result := OKGR_TransBuf_Build_WORD(Source, Pitch, Width, Height, Dest, TransparentColor);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_Build_WORD');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_Build_WORD');
+    raise;
   end;
 end;
 
@@ -2712,7 +2738,8 @@ begin
   try
     Result := OKGR_TransBuf_BuildFromRGBA_16(Source, Pitch, Width, Height, Dest);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_BuildFromRGBA_16');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_BuildFromRGBA_16');
+    raise;
   end;
 end;
 
@@ -2721,7 +2748,8 @@ begin
   try
     OKGR_TransAlphaBuf_DrawClip_WORD(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_TransAlphaBuf_DrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_TransAlphaBuf_DrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -2730,7 +2758,8 @@ begin
   try
     OKGR_AlphaBuf_DrawClip_16(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_AlphaBuf_DrawClip_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaBuf_DrawClip_16');
+    raise;
   end;
 end;
 
@@ -2739,7 +2768,8 @@ begin
   try
     Result := OKGR_TransAlphaBuf_BuildFromRGBA_16(Source, Pitch, Width, Height, Dest);
   except
-    raise Exception.Create('Error in OKGR_TransAlphaBuf_BuildFromRGBA_16');
+    AddCurrentGameExceptionContext('OKGR_TransAlphaBuf_BuildFromRGBA_16');
+    raise;
   end;
 end;
 
@@ -2748,7 +2778,8 @@ begin
   try
     Result := OKGR_AlphaBuf_BuildFromRGBA(Source, Pitch, Width, Height, Dest);
   except
-    raise Exception.Create('Error in OKGR_AlphaBuf_BuildFromRGBA');
+    AddCurrentGameExceptionContext('OKGR_AlphaBuf_BuildFromRGBA');
+    raise;
   end;
 end;
 
@@ -2762,7 +2793,8 @@ begin
   try
     OKGR_AlphaSimpleBuf_Draw_16(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_AlphaSimpleBuf_Draw_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaSimpleBuf_Draw_16');
+    raise;
   end;
 end;
 
@@ -2777,7 +2809,8 @@ begin
   try
     OKGR_AlphaSimpleBufPalAlpha_Draw_16(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height, Palette);
   except
-    raise Exception.Create('Error in OKGR_AlphaSimpleBufPalAlpha_Draw_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaSimpleBufPalAlpha_Draw_16');
+    raise;
   end;
 end;
 
@@ -2786,7 +2819,8 @@ begin
   try
     OKGR_MaskBuf_DrawClip_DWORD(Dest, Pitch, X, Y, Source, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_MaskBuf_DrawClip_DWORD');
+    AddCurrentGameExceptionContext('OKGR_MaskBuf_DrawClip_DWORD');
+    raise;
   end;
 end;
 
@@ -2795,7 +2829,8 @@ begin
   try
     OKGR_MaskBuf_DrawClip_WORD(Dest, Pitch, X, Y, Source, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_MaskBuf_DrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_MaskBuf_DrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -2804,7 +2839,8 @@ begin
   try
     OKGR_TransBuf_FillAlphaClip_RGBA(Dest, Pitch, X, Y, Source, Clip, Color);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_FillAlphaClip_RGBA');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_FillAlphaClip_RGBA');
+    raise;
   end;
 end;
 
@@ -2813,7 +2849,8 @@ begin
   try
     OKGR_TransBuf_FillAlphaClip_16(Dest, Pitch, X, Y, Source, Clip, Color);
   except
-    raise Exception.Create('Error in OKGR_TransBuf_FillAlphaClip_16');
+    AddCurrentGameExceptionContext('OKGR_TransBuf_FillAlphaClip_16');
+    raise;
   end;
 end;
 
@@ -2822,7 +2859,8 @@ begin
   try
     OKGR_AlphaIndexed_CopyDrawClip_WORD(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_CopyDrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_CopyDrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -2831,7 +2869,8 @@ begin
   try
     OKGR_AlphaIndexed_CopyDrawClip_Alpha_16(Dest, Pitch, X, Y, Source, Clip, Alpha);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_CopyDrawClip_Alpha_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_CopyDrawClip_Alpha_16');
+    raise;
   end;
 end;
 
@@ -2840,7 +2879,8 @@ begin
   try
     OKGR_AlphaIndexed_AlphaDrawClip_16(Dest, Pitch, X, Y, Source, Clip);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_AlphaDrawClip_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_AlphaDrawClip_16');
+    raise;
   end;
 end;
 
@@ -2849,7 +2889,8 @@ begin
   try
     OKGR_AlphaIndexed_AlphaDrawClip_Alpha_16(Dest, Pitch, X, Y, Source, Clip, Alpha);
   except
-    raise Exception.Create('Error in OKGR_AlphaIndexed_AlphaDrawClip_Alpha_16');
+    AddCurrentGameExceptionContext('OKGR_AlphaIndexed_AlphaDrawClip_Alpha_16');
+    raise;
   end;
 end;
 
@@ -2858,7 +2899,8 @@ begin
   try
     Result := OKGR_RotateBuf_Build(Width, Height, SourceWidth, SourceHeight, CenterX, CenterY);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_Build');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_Build');
+    raise;
   end;
 end;
 
@@ -2867,7 +2909,8 @@ begin
   try
     OKGR_RotateBuf_Free(Buffer);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_Free');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_Free');
+    raise;
   end;
 end;
 
@@ -2876,7 +2919,8 @@ begin
   try
     OKGR_RotateBuf_Size(X, Y, Angle, RotationMap, Bounds);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_Size');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_Size');
+    raise;
   end;
 end;
 
@@ -2892,7 +2936,8 @@ begin
   try
     OKGR_RotateBuf_Draw_DWORD(Dest, DestPitch, Source, SourcePitch, CenterX, CenterY, Angle, RotationMap);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_Draw_DWORD');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_Draw_DWORD');
+    raise;
   end;
 end;
 
@@ -2908,7 +2953,8 @@ begin
   try
     OKGR_RotateBuf_Draw_BYTE(Dest, DestPitch, Source, SourcePitch, Width, Height, Angle, RotationMap);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_Draw_BYTE');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_Draw_BYTE');
+    raise;
   end;
 end;
 
@@ -2925,7 +2971,8 @@ begin
   try
     OKGR_RotateBuf_DrawTransClip_WORD(Dest, DestPitch, Source, SourcePitch, CenterX, CenterY, Angle, RotationMap, Clip);
   except
-    raise Exception.Create('Error in OKGR_RotateBuf_DrawTransClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_RotateBuf_DrawTransClip_WORD');
+    raise;
   end;
 end;
 
@@ -2934,7 +2981,8 @@ begin
   try
     Result := OKGR_LightBuf_Create(Width, Height);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_Create');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_Create');
+    raise;
   end;
 end;
 
@@ -2943,7 +2991,8 @@ begin
   try
     OKGR_LightBuf_Destroy(Buffer);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_Destroy');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_Destroy');
+    raise;
   end;
 end;
 
@@ -2952,7 +3001,8 @@ begin
   try
     OKGR_LightBuf_SetSme(Buffer, X, Y);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_SetSme');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_SetSme');
+    raise;
   end;
 end;
 
@@ -2961,7 +3011,8 @@ begin
   try
     OKGR_LightBuf_Init(Buffer, Value);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_Init');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_Init');
+    raise;
   end;
 end;
 
@@ -2970,7 +3021,8 @@ begin
   try
     OKGR_LightBuf_LoadFromPalBuf(Buffer, Source, Width, Height, Pitch, Palette);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_LoadFromPalBuf');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_LoadFromPalBuf');
+    raise;
   end;
 end;
 
@@ -2979,7 +3031,8 @@ begin
   try
     OKGR_LightBuf_Rotate(Dest, Source, RotationMap, Angle);
   except
-    raise Exception.Create('Error in OKGR_LightBuf_Rotate');
+    AddCurrentGameExceptionContext('OKGR_LightBuf_Rotate');
+    raise;
   end;
 end;
 
@@ -2988,7 +3041,8 @@ begin
   try
     Result := OKGR_Planet2_TemplBuild(Source, Pitch, Height, TextureWidth, TextureHeight, ByteCount);
   except
-    raise Exception.Create('Error in OKGR_Planet2_TemplBuild');
+    AddCurrentGameExceptionContext('OKGR_Planet2_TemplBuild');
+    raise;
   end;
 end;
 
@@ -2998,7 +3052,8 @@ begin
     OKGR_Planet2_TemplDel(TemplateData);
     Result := 0;
   except
-    raise Exception.Create('Error in OKGR_Planet2_TemplDel');
+    AddCurrentGameExceptionContext('OKGR_Planet2_TemplDel');
+    raise;
   end;
 end;
 
@@ -3014,7 +3069,8 @@ begin
   try
     OKGR_Planet2_DrawAndLight_32(Dest, DestPitch, TemplateData, Source, SourcePitch, WidthMask, MapOffset, LightBuffer, Palette, X, Y);
   except
-    raise Exception.Create('Error in OKGR_Planet2_DrawAndLight_32');
+    AddCurrentGameExceptionContext('OKGR_Planet2_DrawAndLight_32');
+    raise;
   end;
 end;
 
@@ -3044,7 +3100,8 @@ begin
         Clip
     );
   except
-    raise Exception.Create('Error in OKGR_Planet2_DrawAndLightClip_16');
+    AddCurrentGameExceptionContext('OKGR_Planet2_DrawAndLightClip_16');
+    raise;
   end;
 end;
 
@@ -3060,7 +3117,8 @@ begin
   try
     OKGR_Planet3_DrawAndLight_32(Dest, DestPitch, TemplateData, Source, SourcePitch, WidthMask, MapOffset, LightBuffer, Palette, X, Y);
   except
-    raise Exception.Create('Error in OKGR_Planet3_DrawAndLight_32');
+    AddCurrentGameExceptionContext('OKGR_Planet3_DrawAndLight_32');
+    raise;
   end;
 end;
 
@@ -3090,7 +3148,8 @@ begin
         Clip
     );
   except
-    raise Exception.Create('Error in OKGR_Planet3_DrawAndLightClip_16');
+    AddCurrentGameExceptionContext('OKGR_Planet3_DrawAndLightClip_16');
+    raise;
   end;
 end;
 
@@ -3106,7 +3165,8 @@ begin
   try
     OKGR_Planet4_DrawAndLight_32(Dest, DestPitch, TemplateData, Source, SourcePitch, WidthMask, MapOffset, LightBuffer, Palette, X, Y);
   except
-    raise Exception.Create('Error in OKGR_Planet4_DrawAndLight_32');
+    AddCurrentGameExceptionContext('OKGR_Planet4_DrawAndLight_32');
+    raise;
   end;
 end;
 
@@ -3136,7 +3196,8 @@ begin
         Clip
     );
   except
-    raise Exception.Create('Error in OKGR_Planet4_DrawAndLightClip_16');
+    AddCurrentGameExceptionContext('OKGR_Planet4_DrawAndLightClip_16');
+    raise;
   end;
 end;
 
@@ -3150,7 +3211,8 @@ begin
   try
     OKGR_Copy_XY_XY_WORD(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_Copy_XY_XY_WORD');
+    AddCurrentGameExceptionContext('OKGR_Copy_XY_XY_WORD');
+    raise;
   end;
 end;
 
@@ -3166,7 +3228,8 @@ begin
   try
     OKGR_PalCopy_XY_XY_WORD(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Palette, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_PalCopy_XY_XY_WORD');
+    AddCurrentGameExceptionContext('OKGR_PalCopy_XY_XY_WORD');
+    raise;
   end;
 end;
 
@@ -3181,7 +3244,8 @@ begin
   try
     OKGR_CopyTrans_XY_XY_WORD(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height, TransparentColor);
   except
-    raise Exception.Create('Error in OKGR_CopyTrans_XY_XY_WORD');
+    AddCurrentGameExceptionContext('OKGR_CopyTrans_XY_XY_WORD');
+    raise;
   end;
 end;
 
@@ -3190,7 +3254,8 @@ begin
   try
     OKGR_CopySingleBuf_XY_XY_WORD(Pixels, Pitch, DestX, DestY, SourceX, SourceY, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_CopySingleBuf_XY_XY_WORD');
+    AddCurrentGameExceptionContext('OKGR_CopySingleBuf_XY_XY_WORD');
+    raise;
   end;
 end;
 
@@ -3204,7 +3269,8 @@ begin
   try
     OKGR_HACopy_XY_XY_16(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_HACopy_XY_XY_16');
+    AddCurrentGameExceptionContext('OKGR_HACopy_XY_XY_16');
+    raise;
   end;
 end;
 
@@ -3213,7 +3279,8 @@ begin
   try
     OKGR_StretchGdi_WORD(Dest, Width, Height, Source, SourceWidth, SourceHeight);
   except
-    raise Exception.Create('Error in OKGR_StretchGdi_WORD');
+    AddCurrentGameExceptionContext('OKGR_StretchGdi_WORD');
+    raise;
   end;
 end;
 
@@ -3222,7 +3289,8 @@ begin
   try
     OKGR_Fill_WORD(Pixels, Pitch, Width, Height, Color);
   except
-    raise Exception.Create('Error in OKGR_Fill_WORD');
+    AddCurrentGameExceptionContext('OKGR_Fill_WORD');
+    raise;
   end;
 end;
 
@@ -3231,7 +3299,8 @@ begin
   try
     OKGF_ConvertRGBto565(Source, Dest, Pitch, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_ConvertRGBto565');
+    AddCurrentGameExceptionContext('OKGF_ConvertRGBto565');
+    raise;
   end;
 end;
 
@@ -3240,7 +3309,8 @@ begin
   try
     OKGF_Convert565toRGB(Source, SourcePitch, Dest, DestPitch, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_Convert565toRGB');
+    AddCurrentGameExceptionContext('OKGF_Convert565toRGB');
+    raise;
   end;
 end;
 
@@ -3249,7 +3319,8 @@ begin
   try
     OKGF_Convert565toBGR(Source, SourcePitch, Dest, DestPitch, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_Convert565toBGR');
+    AddCurrentGameExceptionContext('OKGF_Convert565toBGR');
+    raise;
   end;
 end;
 
@@ -3258,7 +3329,8 @@ begin
   try
     OKGF_Convert565toBGRA(Source, SourcePitch, Dest, DestPitch, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_Convert565toBGRA');
+    AddCurrentGameExceptionContext('OKGF_Convert565toBGRA');
+    raise;
   end;
 end;
 
@@ -3272,7 +3344,8 @@ begin
   try
     OKGF_Convert_8888to565(Dest, DestPitch, DestX, DestY, Source, SourcePitch, SourceX, SourceY, Width, Height);
   except
-    raise Exception.Create('Error in OKGF_Convert_8888to565');
+    AddCurrentGameExceptionContext('OKGF_Convert_8888to565');
+    raise;
   end;
 end;
 
@@ -3281,7 +3354,8 @@ begin
   try
     OKGR_ShrLight_16(Pixels, Pitch, Width, Height, Shift);
   except
-    raise Exception.Create('Error in OKGR_ShrLight_16');
+    AddCurrentGameExceptionContext('OKGR_ShrLight_16');
+    raise;
   end;
 end;
 
@@ -3290,7 +3364,8 @@ begin
   try
     OKGR_ShrLightMask_16(Dest, DestPitch, Source, SourcePitch, Width, Height);
   except
-    raise Exception.Create('Error in OKGR_ShrLightMask_16');
+    AddCurrentGameExceptionContext('OKGR_ShrLightMask_16');
+    raise;
   end;
 end;
 
@@ -3299,7 +3374,8 @@ begin
   try
     OKGR_Light_BYTE(Pixels, PixelStride, Pitch, Width, Height, Alpha);
   except
-    raise Exception.Create('Error in OKGR_Light_BYTE');
+    AddCurrentGameExceptionContext('OKGR_Light_BYTE');
+    raise;
   end;
 end;
 
@@ -3308,7 +3384,8 @@ begin
   try
     OKGR_Circle_DrawClip_WORD(Pixels, Pitch, X, Y, Radius, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Circle_DrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_Circle_DrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -3317,7 +3394,8 @@ begin
   try
     OKGR_Circle_DrawClip_BYTE(Pixels, Pitch, X, Y, Radius, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Circle_DrawClip_BYTE');
+    AddCurrentGameExceptionContext('OKGR_Circle_DrawClip_BYTE');
+    raise;
   end;
 end;
 
@@ -3326,7 +3404,8 @@ begin
   try
     OKGR_Circle_DrawFillClip_WORD(Pixels, Pitch, X, Y, Radius, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Circle_DrawFillClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_Circle_DrawFillClip_WORD');
+    raise;
   end;
 end;
 
@@ -3335,7 +3414,8 @@ begin
   try
     OKGR_Circle_DrawFillClip_BYTE(Pixels, Pitch, X, Y, Radius, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Circle_DrawFillClip_BYTE');
+    AddCurrentGameExceptionContext('OKGR_Circle_DrawFillClip_BYTE');
+    raise;
   end;
 end;
 
@@ -3344,7 +3424,8 @@ begin
   try
     Result := OKGR_Line_Clip(X1, Y1, X2, Y2, Clip);
   except
-    raise Exception.Create('Error in OKGR_Line_Clip');
+    AddCurrentGameExceptionContext('OKGR_Line_Clip');
+    raise;
   end;
 end;
 
@@ -3359,7 +3440,8 @@ begin
   try
     Result := OKGR_LineColor_Clip(X1, Y1, Color1, X2, Y2, Color2, Clip);
   except
-    raise Exception.Create('Error in Ex_OKGR_LineColor_Clip');
+    AddCurrentGameExceptionContext('OKGR_LineColor_Clip');
+    raise;
   end;
 end;
 
@@ -3368,7 +3450,8 @@ begin
   try
     OKGR_Line_Draw_WORD(Pixels, Pitch, X1, Y1, X2, Y2, Color);
   except
-    raise Exception.Create('Error in OKGR_Line_Draw_WORD');
+    AddCurrentGameExceptionContext('OKGR_Line_Draw_WORD');
+    raise;
   end;
 end;
 
@@ -3377,7 +3460,8 @@ begin
   try
     OKGR_Line_DrawClip_WORD(Pixels, Pitch, X1, Y1, X2, Y2, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Line_DrawClip_WORD');
+    AddCurrentGameExceptionContext('OKGR_Line_DrawClip_WORD');
+    raise;
   end;
 end;
 
@@ -3386,7 +3470,8 @@ begin
   try
     Result := OKGR_Line_CopyToBuf_WORD(Dest, Source, Pitch, X1, Y1, X2, Y2);
   except
-    raise Exception.Create('Error in OKGR_Line_CopyToBuf_WORD');
+    AddCurrentGameExceptionContext('OKGR_Line_CopyToBuf_WORD');
+    raise;
   end;
 end;
 
@@ -3395,7 +3480,8 @@ begin
   try
     Result := OKGR_Line_CopyFromBuf_WORD(Source, Dest, Pitch, X1, Y1, X2, Y2);
   except
-    raise Exception.Create('Error in OKGR_Line_CopyFromBuf_WORD');
+    AddCurrentGameExceptionContext('OKGR_Line_CopyFromBuf_WORD');
+    raise;
   end;
 end;
 
@@ -3404,7 +3490,8 @@ begin
   try
     OKGR_Line_DrawClip_Alpha_16(Pixels, Pitch, X1, Y1, X2, Y2, Color, Alpha, Clip);
   except
-    raise Exception.Create('Error in OKGR_Line_DrawClip_Alpha_16');
+    AddCurrentGameExceptionContext('OKGR_Line_DrawClip_Alpha_16');
+    raise;
   end;
 end;
 
@@ -3413,7 +3500,8 @@ begin
   try
     OKGR_AnimLine_Draw_16(Pixels, Pitch, X1, Y1, X2, Y2, Color, Phase, Clip);
   except
-    raise Exception.Create('Error in OKGR_AnimLine_Draw_16');
+    AddCurrentGameExceptionContext('OKGR_AnimLine_Draw_16');
+    raise;
   end;
 end;
 
@@ -3430,7 +3518,8 @@ begin
   try
     OKGR_AnimShadowLine_Draw_16(Pixels, Pitch, X1, Y1, X2, Y2, Color, Phase, Clip, ShadowPixels, ShadowPitch);
   except
-    raise Exception.Create('Error in OKGR_AnimShadowLine_Draw_16');
+    AddCurrentGameExceptionContext('OKGR_AnimShadowLine_Draw_16');
+    raise;
   end;
 end;
 
@@ -3439,7 +3528,8 @@ begin
   try
     OKGR_Alpha64Trapezium_16(Pixels, Pitch, X1, Y1, X2, Y2, X3, X4, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Alpha64Trapezium_16');
+    AddCurrentGameExceptionContext('OKGR_Alpha64Trapezium_16');
+    raise;
   end;
 end;
 
@@ -3448,7 +3538,8 @@ begin
   try
     OKGR_Alpha128Trapezium_16(Pixels, Pitch, X1, Y1, X2, Y2, X3, X4, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_Alpha128Trapezium_16');
+    AddCurrentGameExceptionContext('OKGR_Alpha128Trapezium_16');
+    raise;
   end;
 end;
 
@@ -3457,7 +3548,8 @@ begin
   try
     OKGR_FillTrapezium_DWORD(Pixels, Pitch, X1, X2, Y1, X3, X4, Y2, Color, Clip);
   except
-    raise Exception.Create('Error in OKGR_FillTrapezium_DWORD');
+    AddCurrentGameExceptionContext('OKGR_FillTrapezium_DWORD');
+    raise;
   end;
 end;
 
@@ -3471,7 +3563,8 @@ begin
   try
     OKGF_Rescale(Dest, Width, Height, DestPitch, Source, SourceWidth, SourceHeight, SourcePitch, BytesPerPixel, Filter);
   except
-    raise Exception.Create('Error in OKGF_Rescale');
+    AddCurrentGameExceptionContext('OKGF_Rescale');
+    raise;
   end;
 end;
 
@@ -3480,7 +3573,8 @@ begin
   try
     OKGR_F5_DrawRGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_F5_DrawRGBA');
+    AddCurrentGameExceptionContext('OKGR_F5_DrawRGBA');
+    raise;
   end;
 end;
 
@@ -3489,7 +3583,8 @@ begin
   try
     OKGR_F6_DrawRGBA(Dest, Pitch, Source);
   except
-    raise Exception.Create('Error in OKGR_F6_DrawRGBA');
+    AddCurrentGameExceptionContext('OKGR_F6_DrawRGBA');
+    raise;
   end;
 end;
 
@@ -3521,14 +3616,6 @@ begin
     raise EWorkerFailure.Create('Runtime watchdog stopped');
 end;
 
-procedure CreateStartupLogFile;
-begin
-  AssignFile(SessionLog, GetGameUserDirectory + '########.log');
-  Rewrite(SessionLog);
-  Writeln(SessionLog, 'Start');
-  CloseFile(SessionLog);
-end;
-
 procedure InitializePlatformRuntimeAndMainWindow;
 begin
   InitializeGameVideo;
@@ -3537,7 +3624,7 @@ begin
   DebugCommandMessage := $C000;
   DirectXVersion := $090000;
   CopyGameFile('#ship_c.dbf', '#ship.dbf');
-  AppendLogLineThreadSafe('Build=2.1.2500 (6 October 2026)');
+  LogGameMessage(gllInfo, 'startup', 'Game data compatibility version=' + GameVersionText);
   PerformanceCounterFrequency := SDL_GetPerformanceFrequency;
   if not InitializePackageCollection then
     raise Exception.Create('Error while initializing package files');
@@ -3554,7 +3641,7 @@ begin
   begin
     if not FileExists(NativeGamePath('install_' + RequestedLanguage + '.txt')) then
     begin
-      AppendLogLineThreadSafe('Not installed - ' + RequestedLanguage);
+      LogGameMessage(gllWarning, 'language', 'Requested language unavailable: ' + RequestedLanguage);
       RequestedLanguage := '';
     end
     else
@@ -3563,14 +3650,14 @@ begin
   if SelectedLanguage <> '' then
     if not FileExists(NativeGamePath('install_' + SelectedLanguage + '.txt')) then
     begin
-      AppendLogLineThreadSafe('Not installed - ' + SelectedLanguage + ', try to switch to russian');
+      LogGameMessage(gllInfo, 'language', 'Language ' + SelectedLanguage + ' unavailable; using russian');
       SelectedLanguage := 'russian';
     end;
   if SelectedLanguage = '' then
     SelectedLanguage := 'russian';
   // Keep the else: DCC32 emits the native jump at $4CBAB6 after the raise.
   if not FileExists(NativeGamePath('install_' + SelectedLanguage + '.txt')) then
-    raise Exception.Create('Not installed language: ' + SelectedLanguage)
+    raise Exception.Create('Missing language installation file: install_' + SelectedLanguage + '.txt')
   else
   begin
     LanguageInstallConfig := TBlockParEC.Create;
@@ -3598,13 +3685,6 @@ begin
       ModNames := TrimWideString(Block.GetParam('CurrentMod'));
     SelectedMods := ModNames;
     SelectedModsDisplaySuffix := ', ' + SelectedMods + ',';
-    if ModNames <> '' then
-    begin
-      if SkipModsOnReload then
-        AppendLogLineThreadSafe('Trying to reload without mods')
-      else
-        AppendLogLineThreadSafe('CurrentMod=' + ModNames);
-    end;
     Block.Free;
   end
   else
@@ -3612,6 +3692,12 @@ begin
     SelectedMods := '';
     SelectedModsDisplaySuffix := '';
   end;
+  if SkipModsOnReload then
+    LogGameMessage(gllInfo, 'mods', 'Retrying with mods disabled')
+  else if ModNames <> '' then
+    LogGameMessage(gllInfo, 'mods', 'Active mods: ' + ModNames)
+  else
+    LogGameMessage(gllInfo, 'mods', 'Active mods: none');
   if not SkipModsOnReload then
   begin
     Index := 0;
@@ -3792,14 +3878,14 @@ var
   begin
     Root.LoadFromEncryptedDatFile(FileName);
     if (Root.GetBlockCount <= 0) and (Root.GetParamCount <= 0) then
-      AppendLogLineThreadSafe('Warning! <' + FileName + '> is empty!');
+      LogGameMessage(gllWarning, 'config', 'Configuration file contains no entries: ' + FileName);
   end;
 
   procedure LoadCacheDatConfig(Root: TDataEC; FileName: WideString);
   begin
     Root.LoadFromEncryptedDatFile(FileName);
     if Root.IsEmpty then
-      AppendLogLineThreadSafe('Warning! <' + FileName + '> is empty!');
+      LogGameMessage(gllWarning, 'config', 'Configuration file contains no entries: ' + FileName);
   end;
 
 begin
@@ -3890,7 +3976,7 @@ begin
   begin
     SelectedMods := 'Custom mod';
     SelectedModsDisplaySuffix := '';
-    AppendLogLineThreadSafe('Custom mod');
+    LogGameMessage(gllInfo, 'mods', 'Custom configuration overrides are active');
   end;
 end;
 
@@ -3930,17 +4016,14 @@ begin
   FinalizeRuntimeAndSettings;
 {$IFDEF MSWINDOWS}
   Text := TrimWideString(ReadRegistryText(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\Windows NT\CurrentVersion', 'ProductName', ''));
-  if HasWow64Support then
-    ExtraText := ' [x64] build '
-  else
-    ExtraText := ' [x86] build ';
+  ExtraText := ' build ';
   DetailText := TrimWideString(ReadRegistryText(HKEY_LOCAL_MACHINE, 'SOFTWARE\Microsoft\Windows NT\CurrentVersion', 'CurrentBuild', ''));
   if ExtractDigitsToIntW(DetailText) >= 22000 then
     Text := ReplaceAllWideString(Text, 'Windows 10', 'Windows 11');
   if RunningUnderWine then
-    AppendLogLineThreadSafe(AnsiString('Wine compatibility mode is set to ''' + Text + ExtraText + DetailText + ''''))
+    LogGameMessage(gllInfo, 'config', 'Wine compatibility mode is set to ''' + Text + ExtraText + DetailText + '''')
   else
-    AppendLogLineThreadSafe(AnsiString('Operating System=' + Text + ExtraText + DetailText));
+    LogGameMessage(gllInfo, 'config', 'Operating System=' + Text + ExtraText + DetailText);
   Index := 0;
   Count := 0;
   while True do
@@ -3977,7 +4060,7 @@ begin
           )
       );
 {$ELSE}
-  AppendLogLineThreadSafe('Operating System=' + {$I %FPCTARGETOS%});
+  LogGameMessage(gllInfo, 'config', 'Operating system: ' + GameOperatingSystemDescription);
   Count := SDL_GetCPUCount;
   ExtraText := {$I %FPCTARGETCPU%};
 {$ENDIF}
@@ -3986,21 +4069,46 @@ begin
   else
     DetailText := WideString(' (' + IntToStr(Count) + ' cores)');
   ProcessorCoreCount := Max(Count, 1);
-  AppendLogLineThreadSafe(AnsiString('Processor=' + ExtraText + DetailText));
-  AppendLogLineThreadSafe('CPU Clock=' + IntToStr(Round(Min(Min(MeasureCpuClockMHz, MeasureCpuClockMHz), MeasureCpuClockMHz))) + ' MHz');
+  LogGameMessage(gllInfo, 'config', 'Processor=' + ExtraText + DetailText);
+{$IFDEF MSWINDOWS}
+  LogGameMessage(gllInfo, 'config', 'CPU clock estimate=' + IntToStr(Round(MeasureCpuClockMHz)) + ' MHz');
+{$ENDIF}
   MemoryStatus.Length := SizeOf(MemoryStatus);
   QueryGameMemory(MemoryStatus);
-  AppendLogLineThreadSafe('Physical Memory Total=' + IntToStr(MemoryStatus.TotalPhys div $100000) + ' MB');
-  AppendLogLineThreadSafe('Physical Memory Available=' + IntToStr(MemoryStatus.AvailPhys div $100000) + ' MB');
-  AppendLogLineThreadSafe('Page File Total=' + IntToStr(MemoryStatus.TotalPageFile div $100000) + ' MB');
-  AppendLogLineThreadSafe('Page File Available=' + IntToStr(MemoryStatus.AvailPageFile div $100000) + ' MB');
-  AppendLogLineThreadSafe('Virtual Memory Total=' + IntToStr(MemoryStatus.TotalVirtual div $100000) + ' MB');
-  AppendLogLineThreadSafe('Virtual Memory Available=' + IntToStr(MemoryStatus.AvailVirtual div $100000) + ' MB');
+  LogGameMessage(
+      gllInfo,
+      'config',
+      'Physical memory: total='
+          + IntToStr(MemoryStatus.TotalPhys div $100000)
+          + ' MiB; available estimate='
+          + IntToStr(MemoryStatus.AvailPhys div $100000)
+          + ' MiB'
+  );
+{$IFDEF MSWINDOWS}
+  LogGameMessage(
+      gllInfo,
+      'config',
+      'Commit limit='
+          + IntToStr(MemoryStatus.TotalPageFile div $100000)
+          + ' MiB; available commit='
+          + IntToStr(MemoryStatus.AvailPageFile div $100000)
+          + ' MiB'
+  );
+  LogGameMessage(
+      gllInfo,
+      'config',
+      'Virtual address space: total='
+          + IntToStr(MemoryStatus.TotalVirtual div $100000)
+          + ' MiB; available='
+          + IntToStr(MemoryStatus.AvailVirtual div $100000)
+          + ' MiB'
+  );
+{$ENDIF}
   UserSettingsConfig := TBlockParEC.Create;
   Text := GetGameUserDirectory + 'CFG.TXT';
   if not FileExists(NativeGamePath(AnsiString(Text))) then
   begin
-    AppendLogTextThreadSafe('Creating cfg.txt ... ');
+    LogGameMessage(gllInfo, 'config', 'Creating user configuration: ' + Text);
     CopyGameFile('cfg.txt', Text);
     UserSettingsConfig.LoadFromTextFileWithEncodingProbe(PWideChar(Text), True);
     UserSettingsConfig.AddParam('CurrentVersion', GameVersionText);
@@ -4011,37 +4119,33 @@ begin
       ShowWineWarning := True;
     end;
     UserSettingsConfig.SaveTextFile(PWideChar(Text), True, False);
-    AppendLogLineThreadSafe('ok!');
   end
   else
   begin
     UserSettingsConfig.LoadFromTextFileWithEncodingProbe(PWideChar(Text), True);
     if UserSettingsConfig.CountParamsByPath('CurrentVersion') = 0 then
     begin
-      AppendLogTextThreadSafe('Updating cfg.txt content ... ');
+      LogGameMessage(gllInfo, 'config', 'Updating user configuration: ' + Text);
       UserSettingsConfig.AddParam('CurrentVersion', GameVersionText);
       UserSettingsConfig.SetOrAddParam('HardwareRender', 'True');
       UserSettingsConfig.SetOrAddParam('MultiThread', 'False');
       UserSettingsConfig.SaveTextFile(PWideChar(Text), True, False);
-      AppendLogLineThreadSafe('ok!');
     end
     else if UserSettingsConfig.GetParamByPathOrMarker('CurrentVersion') <> GameVersionText then
     begin
-      AppendLogTextThreadSafe('Updating cfg.txt version ... ');
+      LogGameMessage(gllInfo, 'config', 'Updating user configuration to version ' + GameVersionText + ': ' + Text);
       if (UserSettingsConfig.GetParam('CurrentVersion') = '2.1.1800')
           and (UserSettingsConfig.CountParamsByPath('CountFilmSave') > 0)
           and (UserSettingsConfig.GetParamByPathOrMarker('CountFilmSave') = '30') then
         UserSettingsConfig.SetOrAddParam('CountFilmSave', '7');
       UserSettingsConfig.SetOrAddParam('CurrentVersion', GameVersionText);
       UserSettingsConfig.SaveTextFile(PWideChar(Text), True, False);
-      AppendLogLineThreadSafe('ok!');
     end;
     if UserSettingsConfig.CountParamsByPath('VideoMemSizeLimit') = 0 then
     begin
-      AppendLogTextThreadSafe('Updating cfg.txt content ... ');
+      LogGameMessage(gllInfo, 'config', 'Updating user configuration: ' + Text);
       UserSettingsConfig.AddParam('VideoMemSizeLimit', '256');
       UserSettingsConfig.SaveTextFile(PWideChar(Text), True, False);
-      AppendLogLineThreadSafe('ok!');
     end;
     if RunningUnderWine then
       if (UserSettingsConfig.CountParams('RunOnWineWithoutWarning') = 0)
@@ -4104,7 +4208,7 @@ begin
       GlobalCache.ResidentByteLimit := $18000000
     else
       GlobalCache.ResidentByteLimit := Min(Int64(Cardinal(MemoryStatus.AvailVirtual) div 3), Int64($18000000));
-  AppendLogLineThreadSafe('Cache Size=' + IntToStr(GlobalCache.ResidentByteLimit div 1024) + ' KB');
+  LogGameMessage(gllInfo, 'config', 'Cache Size=' + IntToStr(GlobalCache.ResidentByteLimit div 1024) + ' KB');
   if UserSettingsConfig.CountParams('Brightness') > 0 then
     DisplayBrightness := ParseDecimalToSingleW(UserSettingsConfig.GetParamByPathOrMarker('Brightness'));
   if UserSettingsConfig.CountParams('Contrast') > 0 then
@@ -4182,12 +4286,6 @@ begin
     WideCaseTable[Index].LowerChar := Block.GetParamName(Index)[1];
     WideCaseTable[Index].UpperChar := Block.GetParamValue(Index)[1];
   end;
-  AppendLogLineThreadSafe('Loading configuration files.... ok!');
-  AppendLogLineThreadSafe('Creating window.... ok!');
-  if SoundEnabled then
-    AppendLogLineThreadSafe('Sound interfaces are:')
-  else
-    AppendLogLineThreadSafe('Sound is disabled...');
   SoundManager := TSoundControl.Create;
   MusicManager := TMusicControl.Create;
   if XonarSoundDevice then
@@ -4206,8 +4304,20 @@ begin
   ShowAndFocusMainWindow;
   if not ShowSystemMouse then
     ShowGameCursor(False);
-  AppendLogLineThreadSafe(AnsiString('Sound=' + BoolToWideString(SoundEnabled)));
-  AppendLogLineThreadSafe(AnsiString('Music=' + BoolToWideString(MusicEnabled)));
+  LogGameMessage(
+      gllInfo,
+      'config',
+      UnicodeFormat(
+          'Settings: language=%s; mobile-ui=%s; multithread=%s; sound=%s; music=%s',
+          [
+              SelectedLanguage,
+              BoolToWideString(GameMobileUiEnabled),
+              BoolToWideString(MultiThreadEnabled),
+              BoolToWideString(SoundEnabled),
+              BoolToWideString(MusicEnabled)
+          ]
+      )
+  );
   InterfaceBlendPalette := AllocEC(512);
   for Index := 0 to 255 do
   begin
@@ -4229,7 +4339,7 @@ begin
     begin
       RecordingFrameBuffers := TList.Create;
       Count := ((BufferSize shl 10) shl 10) div (GameScreenWidth * GameScreenHeight * 2) + 1;
-      AppendLogLineThreadSafe('FilmFrame=' + IntToStr(Count));
+      LogGameMessage(gllInfo, 'config', 'FilmFrame=' + IntToStr(Count));
       for Index := 0 to Count - 1 do
       begin
         Frame := AllocEC(GameScreenWidth * GameScreenHeight * 2);
@@ -4247,19 +4357,37 @@ begin
     Cursor.ImagePath := Block.GetBlockByIndex(Index).GetParam('Image');
     Cursor.HotSpot := GetPointGI(Block.GetBlockByIndex(Index).GetParam('Sme'));
   end;
+  // Mod overrides can change these fields. Recompute after every reload so a
+  // successful retry without mods does not inherit the previous mismatch.
+  BuildVersionMismatch := False;
   if LanguageDataConfig.GetParamByPathOrMarker('BV.BV') <> GameVersionText then
   begin
-    AppendLogLineThreadSafe('Build version mismatch with Lang.dat!');
+    LogGameMessage(
+        gllError,
+        'config',
+        'Lang.dat compatibility mismatch: expected ' + GameVersionText + ', found ' + LanguageDataConfig.GetParamByPathOrMarker('BV.BV')
+    );
     BuildVersionMismatch := True;
   end;
   if MainDataConfig.GetParamByPathOrMarker('BV.BV') <> GameVersionText then
   begin
-    AppendLogLineThreadSafe('Build version mismatch with Main.dat!');
+    LogGameMessage(
+        gllError,
+        'config',
+        'Main.dat compatibility mismatch: expected ' + GameVersionText + ', found ' + MainDataConfig.GetParamByPathOrMarker('BV.BV')
+    );
     BuildVersionMismatch := True;
   end;
   if CacheDataRoot.FindEntry('BV').ChildData.FindEntry('BV').SharedFileRef.FileRef.FileName <> GameVersionText then
   begin
-    AppendLogLineThreadSafe('Build version mismatch with CacheData.dat!');
+    LogGameMessage(
+        gllError,
+        'config',
+        'CacheData.dat compatibility mismatch: expected '
+            + GameVersionText
+            + ', found '
+            + AnsiString(CacheDataRoot.FindEntry('BV').ChildData.FindEntry('BV').SharedFileRef.FileRef.FileName)
+    );
     BuildVersionMismatch := True;
   end;
   // Refreshing this snapshot also advances the shared random stream.
@@ -4326,6 +4454,7 @@ procedure EnumerateAndSelectDisplayModes;
 var
   Index, ModeCount: Integer;
   Resolution, ModeKey: WideString;
+  AvailableResolutions: UnicodeString;
   SmallestArea: Integer;
   Modes: TBlockParEC;
   Mode: TDisplayModeGR;
@@ -4399,10 +4528,12 @@ begin
   RobotDisplayModeCount := Modes.GetParamCount;
   SetLength(GameDisplayModes, GameDisplayModeCount + 2);
   SetLength(RobotDisplayModes, RobotDisplayModeCount + 2);
-  AppendLogLineThreadSafe(
+  LogGameMessage(
+      gllInfo,
+      'renderer',
       'Desktop Resolution=' + SysUtils.IntToStr(Int64(DesktopDisplayMode.Width)) + 'x' + SysUtils.IntToStr(Int64(DesktopDisplayMode.Height))
   );
-  AppendLogTextThreadSafe('Available Resolutions=');
+  AvailableResolutions := '';
   for Index := 0 to Modes.GetParamCount - 1 do
   begin
     ModeKey := Modes.GetParamValue(Index);
@@ -4424,13 +4555,15 @@ begin
     if (Cardinal(RobotSettings.ScreenWidth) = Mode.Width) and (Cardinal(RobotSettings.ScreenHeight) = Mode.Height) then
       SelectedRobotDisplayMode := Index;
     if Index > 0 then
-      AppendLogTextThreadSafe(', ');
-    AppendLogTextThreadSafe(SysUtils.IntToStr(Int64(Mode.Width)) + 'x' + SysUtils.IntToStr(Int64(Mode.Height)));
+      AvailableResolutions := AvailableResolutions + ', ';
+    AvailableResolutions := AvailableResolutions + SysUtils.IntToStr(Int64(Mode.Width)) + 'x' + SysUtils.IntToStr(Int64(Mode.Height));
   end;
   Modes.Free;
+  if AvailableResolutions <> '' then
+    LogGameMessage(gllInfo, 'renderer', 'Available resolutions: ' + AvailableResolutions);
   if GameDisplayModeCount = 0 then
   begin
-    AppendLogTextThreadSafe('No supported resolutions found!');
+    LogGameMessage(gllWarning, 'renderer', 'No supported resolutions found');
     if (Cardinal(GameScreenWidth) < 1024) or (Cardinal(GameScreenHeight) < 720) then
     begin
       AlternateViewportEnabled := True;
@@ -4485,7 +4618,6 @@ begin
     RobotDisplayModes[SelectedRobotDisplayMode].Height := RobotSettings.ScreenHeight;
     Inc(RobotDisplayModeCount);
   end;
-  AppendLogLineThreadSafe('');
   ExtraScreenWidth := GameScreenWidth - 1024;
   ExtraScreenHeight := GameScreenHeight - 768;
   GameScreenRect := Classes.Rect(0, 0, GameScreenWidth, GameScreenHeight);
@@ -4643,13 +4775,8 @@ begin
     if Direct3D = nil then
     begin
       Direct3D := CreateGameGraphics;
-      // Native constructs this exception without raising it.
       if Direct3D = nil then
-        EDirectXRender.Create('GR_DXInit()::Direct3DCreate9(...)');
-      AppendLogLineThreadSafe('Initializing DX9.... ok!');
-      Direct3D.GetAdapterIdentifier(D3DADAPTER_DEFAULT, 0, Identifier);
-      AppendLogLineThreadSafe('Videocard=' + AnsiString(Identifier.Description));
-      AppendLogLineThreadSafe('Driver=' + AnsiString(Identifier.Driver));
+        raise EDirectXRender.Create('Cannot create SDL graphics interface');
     end;
     SupportedMultiSamples := nil;
     SupportedMultiSampleCount := 0;
@@ -4664,7 +4791,6 @@ begin
       MaximumAnisotropy := Caps.MaxAnisotropy;
     MaxTextureSize.X := Caps.MaxTextureWidth;
     MaxTextureSize.Y := Caps.MaxTextureHeight;
-    AppendLogLineThreadSafe('Max Texture Size=' + IntToStr(Int64(Caps.MaxTextureWidth)) + 'x' + IntToStr(Int64(Caps.MaxTextureHeight)));
     EnumerateAndSelectDisplayModes;
     PreparePresentationParameters;
     ApplyMainWindowGeometry;
@@ -4697,9 +4823,7 @@ begin
             );
       if (Code <> 0) or (Direct3DDevice = nil) then
       begin
-        AppendLogLineThreadSafe(
-            'Error: GR_DXInit()::GR_Direct3D.CreateDevice, failed to create device, trying to switch to minimal resolution...'
-        );
+        LogGameMessage(gllWarning, 'renderer', 'Renderer creation failed; retrying at the smallest supported resolution');
         SelectedGameDisplayMode := SmallestGameDisplayMode;
         GameScreenWidth := GameDisplayModes[SelectedGameDisplayMode].Width;
         GameScreenHeight := GameDisplayModes[SelectedGameDisplayMode].Height;
@@ -4727,7 +4851,7 @@ begin
         if (Code <> 0) or (Direct3DDevice = nil) then
         begin
           LogPresentationParameters;
-          raise EDirectXRender.CreateCode('GR_DXInit()::GR_Direct3D.CreateDevice', Code);
+          raise EDirectXRender.CreateCode('Create SDL presentation device', Code);
         end;
       end;
       Direct3DDevice.GetRenderTarget(0, Surface);
@@ -4736,7 +4860,6 @@ begin
       Direct3DDevice.ColorFill(Surface, nil, 0);
       Direct3DDevice.GetBackBuffer(0, 1, D3DBACKBUFFER_TYPE_MONO, Surface);
       Direct3DDevice.ColorFill(Surface, nil, 0);
-      AppendLogLineThreadSafe('Initializing Direct3D device... ok!');
     end
     else
     begin
@@ -4744,9 +4867,9 @@ begin
       if Code <> 0 then
       begin
         LogPresentationParameters;
-        raise EDirectXRender.CreateCode('GR_DXInit()::GR_D3DDevice.Reset', Code);
+        raise EDirectXRender.CreateCode('Reset SDL presentation device', Code);
       end;
-      AppendLogLineThreadSafe('Re-initializing Direct3D device... ok!');
+      LogGameMessage(gllInfo, 'renderer', 'Renderer reset');
     end;
     // Capture the actual surface after window creation, before any controls
     // are built. Later docking/resizes change presentation, not this layout.
@@ -4757,17 +4880,16 @@ begin
     begin
       MaxTextureSize.X := Caps.MaxTextureWidth;
       MaxTextureSize.Y := Caps.MaxTextureHeight;
-      AppendLogLineThreadSafe('Active Max Texture Size=' + IntToStr(MaxTextureSize.X) + 'x' + IntToStr(MaxTextureSize.Y));
     end;
     AvailableTextureBytes := Direct3DDevice.GetAvailableTextureMem;
     ReservedTextureBytes := ExtractDigitsToIntW(UserSettingsConfig.GetParamByPathOrMarker('VideoMemSizeLimit'));
-    AppendLogLineThreadSafe('Available Video Memory=' + IntToStr(Int64(AvailableTextureBytes shr 10)) + ' KB');
     if Integer(ReservedTextureBytes) > 0 then
     begin
-      AppendLogLineThreadSafe('Available Video Memory Override=' + IntToStr(Integer(ReservedTextureBytes shl 10)) + ' KB');
+      LogGameMessage(gllInfo, 'renderer', 'Texture cache limit=' + IntToStr(ReservedTextureBytes) + ' MiB');
       ReservedTextureBytes := AvailableTextureBytes - ((ReservedTextureBytes shl 10) shl 10);
-    end;
-    UserSettingsConfig.GetParam('VideoMemSizeLimit');
+    end
+    else
+      LogGameMessage(gllInfo, 'renderer', 'Texture cache limit=' + IntToStr(AvailableTextureBytes shr 20) + ' MiB');
     for Index := Low(DrawVertices) to High(DrawVertices) do
     begin
       DrawVertices[Index].Z := 1;
@@ -4776,37 +4898,18 @@ begin
     Direct3DDevice.SetVertexShader(nil);
     Direct3DDevice.SetFVF(D3DFVF_XYZRHW or D3DFVF_DIFFUSE or D3DFVF_TEX1);
     ConfigureDefaultRenderState;
-    AppendLogTextThreadSafe('Display Mode=');
-    if not Direct3DPresentParameters.Windowed then
-    begin
-      AppendLogTextThreadSafe(
-          IntToStr(Int64(Direct3DPresentParameters.BackBufferWidth))
-              + 'x'
-              + IntToStr(Int64(Direct3DPresentParameters.BackBufferHeight))
-              + ' '
-              + IntToStr(Int64(Direct3DPresentParameters.FullScreenRefreshRateInHz))
-              + 'Hz'
-      );
-      if AlternateViewportEnabled then
-        AppendLogLineThreadSafe(
-            ' [' + IntToStr(Int64(Cardinal(GameScreenWidth))) + 'x' + IntToStr(Int64(Cardinal(GameScreenHeight))) + ']'
-        );
-    end
-    else
-    begin
-      if AlternateViewportEnabled then
-        AppendLogTextThreadSafe(IntToStr(Int64(Cardinal(PresentationWidth))) + 'x' + IntToStr(Int64(Cardinal(PresentationHeight))) + ' [');
-      AppendLogTextThreadSafe(IntToStr(Int64(Cardinal(GameScreenWidth))) + 'x' + IntToStr(Int64(Cardinal(GameScreenHeight))));
-      if AlternateViewportEnabled then
-        AppendLogTextThreadSafe(']');
-    end;
-    AppendLogLineThreadSafe('');
   except
     on E: EDirectXRender do
     begin
+      AddGameExceptionContext(E, 'Initialize SDL presentation');
       ThreeDimensionalModeEnabled := False;
-      Direct3DDevice := nil;
-      Direct3D := nil;
+      try
+        Direct3DDevice := nil;
+        Direct3D := nil;
+      except
+        LogCurrentGameException('renderer', 'Releasing failed SDL presentation interfaces');
+      end;
+      raise;
     end;
   end;
   CurrentPixelFormat := TPixelFormatGR.Create;
@@ -5053,8 +5156,7 @@ begin
   except
     on E: Exception do
     begin
-      AppendLogLineThreadSafe(E.ClassName + ' ' + E.Message);
-      E.Message := 'Error in procedure GR_WinMessage, label = ' + SysUtils.IntToStr(Stage) + ': ' + E.Message;
+      AddGameExceptionContext(E, 'Dispatch window event; stage=' + SysUtils.IntToStr(Stage));
       raise;
     end;
   end;
@@ -5937,74 +6039,23 @@ begin
   Result := Value;
 end;
 
-procedure AppendLogLineThreadSafe(const Text: AnsiString);
-begin
-  if SessionLogLock = nil then
-    SessionLogLock := TCriticalSection.Create;
-  SessionLogLock.Enter;
-  Append(SessionLog);
-  Writeln(SessionLog, Text);
-  CloseFile(SessionLog);
-  SessionLogLock.Leave;
-end;
-
-procedure AppendLogTextThreadSafe(const Text: AnsiString);
-begin
-  if SessionLogLock = nil then
-    SessionLogLock := TCriticalSection.Create;
-  SessionLogLock.Enter;
-  Append(SessionLog);
-  Write(SessionLog, Text);
-  CloseFile(SessionLog);
-  SessionLogLock.Leave;
-end;
-
-procedure AppendDebugLogLine(const Text: AnsiString);
-var
-  Log: TextFile;
-begin
-  if SessionLogLock = nil then
-    SessionLogLock := TCriticalSection.Create;
-  SessionLogLock.Enter;
-  AssignFile(Log, '#####add.log');
-  if not FileExists('#####add.log') then
-    Rewrite(Log)
-  else
-    Append(Log);
-  Writeln(Log, Text);
-  CloseFile(Log);
-  SessionLogLock.Leave;
-end;
-
-procedure AppendOptionalDebugLogLine(const Text: AnsiString);
-var
-  Log: TextFile;
-begin
-  if FileExists('#####add.log') then
-  begin
-    if SessionLogLock = nil then
-      SessionLogLock := TCriticalSection.Create;
-    SessionLogLock.Enter;
-    AssignFile(Log, '#####add.log');
-    Append(Log);
-    Writeln(Log, Text);
-    CloseFile(Log);
-    SessionLogLock.Leave;
-  end;
-end;
-
 procedure WriteTextFileThreadSafe(FileName, Text: AnsiString);
 var
-  F: TextFile;
+  Stream: TFileStream;
+  Contents: AnsiString;
 begin
-  if SessionLogLock = nil then
-    SessionLogLock := TCriticalSection.Create;
-  SessionLogLock.Enter;
-  AssignFile(F, NativeGamePath(FileName));
-  Rewrite(F);
-  Writeln(F, Text);
-  CloseFile(F);
-  SessionLogLock.Leave;
+  EnterCriticalSection(DebugTextFileLock);
+  try
+    Stream := TFileStream.Create(NativeGamePath(FileName), fmCreate);
+    try
+      Contents := Text + LineEnding;
+      Stream.WriteBuffer(Contents[1], Length(Contents));
+    finally
+      Stream.Free;
+    end;
+  finally
+    LeaveCriticalSection(DebugTextFileLock);
+  end;
 end;
 
 function IsInstallFeatureEnabled(const Path: WideString): Boolean;
@@ -6260,7 +6311,7 @@ end;
 procedure LogPresentationParameters;
 var
   CurrentValue, PreviousValue: Cardinal;
-  Text: WideString;
+  Text, Fields: WideString;
 
   procedure LogPresentationField(Name: WideString);
   begin
@@ -6268,11 +6319,10 @@ var
       Text := Name + ' = ' + SysUtils.IntToStr(Int64(CurrentValue))
     else
       Text := Name + ' = ' + SysUtils.IntToStr(Int64(CurrentValue)) + ', previous value = ' + SysUtils.IntToStr(Int64(PreviousValue));
-    AppendLogLineThreadSafe(Text);
+    Fields := Fields + LineEnding + Text;
   end;
 begin
-  AppendLogLineThreadSafe('');
-  AppendLogLineThreadSafe('D3DPresent structure:');
+  Fields := 'Presentation parameters:';
   CurrentValue := Direct3DPresentParameters.BackBufferWidth;
   PreviousValue := PreviousPresentParameters.BackBufferWidth;
   LogPresentationField('BackBufferWidth');
@@ -6315,7 +6365,13 @@ begin
   CurrentValue := Direct3DPresentParameters.PresentationInterval;
   PreviousValue := PreviousPresentParameters.PresentationInterval;
   LogPresentationField('PresentationInterval');
-  AppendLogLineThreadSafe('');
+  LogGameMessage(gllError, 'renderer', Fields);
 end;
+
+initialization
+  InitCriticalSection(DebugTextFileLock);
+
+finalization
+  DoneCriticalSection(DebugTextFileLock);
 
 end.

@@ -182,6 +182,13 @@ are omitted.
 - **Exception context.** `GR_WinMessage` in `source/GR_Main.pas` and handlers in
   `source/ui/GI_MessageLoop.pas` add message, transition or drawing context while
   re-raising the original exception, preserving its class, address and backtrace.
+- **Unified diagnostics.** `platform/GameDiagnostics.pas` writes session records
+  with severity levels, 4 MiB rotation and three backups. Logs include build and
+  renderer details, completed save/load operations, screen changes and script
+  `SFT` output. Exception reports preserve original stacks across workers and
+  callbacks, with script call history on failure. The final record reports elapsed
+  time, exit code and warning/error counts. Desktop launches detect interrupted
+  sessions. Routine layout, rescaling and script progress use debug level.
 
 ## Mobile layout and interaction
 
@@ -283,8 +290,10 @@ Applying the setting reloads the interface.
   draw, save layouts, local scores and score-file export remain.
 - External script DLLs are not loaded: FPC objects do not share the original game's
   layout and VMT ABI, including on Win32. See `platform/GameScriptLibrary.pas`.
-  The original Steam/MatrixGame wrappers remain limited to 32-bit Windows; see
-  `source/SimpleSteamApi.pas` and `source/game/Robot.pas`.
+  The unused Steam wrapper and callback worker were removed; achievements remain
+  local. The original robot-engine DLL is never loaded on any target. Its callbacks,
+  settings and battle integration code remain for a future compatible engine; see
+  `source/game/Robot.pas`.
 
 ## Optional native mods
 

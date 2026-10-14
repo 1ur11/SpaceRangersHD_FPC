@@ -18,9 +18,11 @@ function LockGameInstance: Boolean;
 
 function GameTickCount: Cardinal;
 function GameCpuClockMHz: Double;
+function GameOperatingSystemDescription: UnicodeString;
 function GameUserDirectory: UnicodeString;
 function NativeGamePath(const Path: UnicodeString): UnicodeString;
 procedure SetGameDirectory(const Path: UnicodeString);
+function GameNativeExceptionDetails(E: TObject): UnicodeString;
 
 implementation
 
@@ -49,6 +51,62 @@ uses
 
 var
   InstanceFile: THandle = THandle(-1);
+
+function GameNativeExceptionDetails(E: TObject): UnicodeString;
+{$IFDEF MSWINDOWS}
+var
+  Code, Parameters: Cardinal;
+  Address: Pointer;
+  Information: array[0..2] of PtrUInt;
+  I: Integer;
+  Memory: TMemoryBasicInformation;
+  ModulePath: array[0..1023] of WideChar;
+  ModuleLength: Cardinal;
+  Access: UnicodeString;
+{$ENDIF}
+begin
+  Result := '';
+{$IFDEF MSWINDOWS}
+  // Pascal-raised EExternal objects have an empty native exception record.
+  if not (E is EExternal) or (EExternal(E).ExceptionRecord = nil) then
+    Exit;
+  Code := EExternal(E).ExceptionRecord^.ExceptionCode;
+  Address := EExternal(E).ExceptionRecord^.ExceptionAddress;
+  Parameters := EExternal(E).ExceptionRecord^.NumberParameters;
+  for I := 0 to 2 do
+    if Cardinal(I) < Parameters then
+      Information[I] := PtrUInt(EExternal(E).ExceptionRecord^.ExceptionInformation[I])
+    else
+      Information[I] := 0;
+  if Code = 0 then
+    Exit;
+  Result := 'Native exception code=$' + IntToHex(Code, 8) + ' address=$' + IntToHex(PtrUInt(Address), SizeOf(Pointer) * 2);
+  if (VirtualQuery(Address, Memory, SizeOf(Memory)) <> 0) and (Memory._Type = MEM_IMAGE) then
+  begin
+    ModuleLength := GetModuleFileNameW(HMODULE(Memory.AllocationBase), ModulePath, Length(ModulePath));
+    if (ModuleLength > 0) and (ModuleLength < Cardinal(Length(ModulePath))) then
+      Result :=
+          Result
+              + ' module='
+              + ExtractFileName(UnicodeString(ModulePath))
+              + '+$'
+              + IntToHex(PtrUInt(Address) - PtrUInt(Memory.AllocationBase), 1);
+  end;
+  if ((Code = $C0000005) or (Code = $C0000006)) and (Parameters >= 2) then
+  begin
+    case Information[0] of
+      0: Access := 'read';
+      1: Access := 'write';
+      8: Access := 'execute';
+    else
+      Access := UIntToStr(Information[0]);
+    end;
+    Result := Result + ' access=' + Access + ' target=$' + IntToHex(Information[1], SizeOf(Pointer) * 2);
+    if (Code = $C0000006) and (Parameters >= 3) then
+      Result := Result + ' io-status=$' + IntToHex(Information[2], 8);
+  end;
+{$ENDIF}
+end;
 
 {$IFDEF SWITCH}
 procedure NativeSwitchMemoryStatus(out Capacity, Available: QWord); cdecl; external name 'sr_switch_memory_status';
@@ -335,6 +393,71 @@ procedure SetGameDirectory(const Path: UnicodeString);
 begin
   if (Path = '') or not SetCurrentDir(UTF8Encode(NativeGamePath(Path))) then
     raise EInOutError.Create('Cannot open game directory: ' + UTF8Encode(Path));
+end;
+
+{$IFDEF DARWIN}
+function DarwinSystemText(Name: PAnsiChar): UnicodeString;
+var
+  Buffer: array[0..255] of AnsiChar;
+  Size: size_t;
+begin
+  Result := '';
+  FillChar(Buffer, SizeOf(Buffer), 0);
+  Size := SizeOf(Buffer);
+  if (FPsysctlbyname(Name, @Buffer, @Size, nil, 0) = 0) and (Size > 0) and (Size <= SizeOf(Buffer)) then
+    Result := UTF8Decode(UTF8String(PAnsiChar(@Buffer[0])));
+end;
+{$ENDIF}
+
+function GameOperatingSystemDescription: UnicodeString;
+{$IFDEF DARWIN}
+var
+  Version, Build: UnicodeString;
+{$ELSEIF Defined(LINUX)}
+var
+  Info: utsname;
+{$ENDIF}
+begin
+{$IFDEF DARWIN}
+  {$IFDEF SRHD_IOS}
+  Result := 'iOS';
+  {$ELSE}
+  Result := 'macOS';
+  {$ENDIF}
+  Version := DarwinSystemText('kern.osproductversion');
+  Build := DarwinSystemText('kern.osversion');
+  if Version <> '' then
+    Result := Result + ' ' + Version
+  else
+  begin
+    Version := DarwinSystemText('kern.osrelease');
+    if Version <> '' then
+      Result := Result + ' (product version unavailable; Darwin ' + Version + ')'
+    else
+      Result := Result + ' (version unavailable)';
+  end;
+  if Build <> '' then
+    Result := Result + ' build ' + Build;
+{$ELSEIF Defined(LINUX)}
+  {$IFDEF ANDROID}
+  Result := 'Android';
+  {$ELSE}
+  Result := 'Linux';
+  {$ENDIF}
+  if FpUname(Info) = 0 then
+    Result := Result + ' (kernel ' + UTF8Decode(UTF8String(PAnsiChar(@Info.release[0]))) + ')'
+  else
+    Result := Result + ' (kernel version unavailable)';
+{$ELSEIF Defined(MSWINDOWS)}
+  // The Windows startup report already supplies product/build registry data.
+  Result := 'Windows';
+{$ELSEIF Defined(SWITCH)}
+  Result := 'Nintendo Switch (OS version unavailable)';
+{$ELSEIF Defined(FPC_WASM_EMSCRIPTEN)}
+  Result := 'WebAssembly browser (host OS unavailable)';
+{$ELSE}
+  Result := 'Operating system details unavailable';
+{$ENDIF}
 end;
 
 function GameCpuClockMHz: Double;

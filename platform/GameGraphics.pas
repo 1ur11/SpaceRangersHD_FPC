@@ -22,6 +22,8 @@ uses
   GameGraphicsBase,
   SDL2,
   GameWindow,
+  GameDiagnostics,
+  GameSDLDiagnostics,
   Classes,
   SyncObjs,
   Math,
@@ -97,6 +99,7 @@ type
     GammaTexture: PSDL_Texture;
     TargetGeneration: LongInt;
     procedure RebindRenderTarget;
+    procedure RestoreTarget(Target: IDirect3DSurface9; RestoreClip, PreserveFailure: Boolean);
     constructor Create(var Parameters: TD3DPresentParameters);
     destructor Destroy; override;
     function TestCooperativeLevel: LongInt; stdcall; override;
@@ -184,36 +187,65 @@ begin
   Result.A := Color shr 24;
 end;
 
-procedure Check(Value: Integer);
+procedure RestoreTextureTarget(Target: PSDL_Texture; PreserveFailure: Boolean);
 begin
-  if Value < 0 then
-    raise Exception.Create('SDL renderer: ' + string(SDL_GetError));
+  try
+    CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, Target), 'SDL_SetRenderTarget(restore)');
+  except
+    if not PreserveFailure then
+      raise;
+    LogCurrentGameException('video', 'Secondary failure restoring SDL render target');
+  end;
+end;
+
+procedure RestoreTextureBinding(Texture: PSDL_Texture; PreserveFailure: Boolean);
+begin
+  try
+    CheckGameSDL(SDL_GL_UnbindTexture(Texture), 'SDL_GL_UnbindTexture');
+  except
+    if not PreserveFailure then
+      raise;
+    LogCurrentGameException('video', 'Secondary failure restoring OpenGL texture binding');
+  end;
+end;
+
+procedure DestroyReadbackTexture(Texture: PSDL_Texture; PreserveFailure: Boolean);
+begin
+  try
+    SDL_DestroyTexture(Texture);
+  except
+    if not PreserveFailure then
+      raise;
+    LogCurrentGameException('video', 'Secondary failure destroying SDL readback texture');
+  end;
 end;
 
 procedure SetTextureSampling(Texture: PSDL_Texture; Mode: Integer);
 var
   Previous: Integer;
   Info: TSDL_RendererInfo;
-  OpenGL: Boolean;
+  OpenGL, Completed: Boolean;
 begin
-  Check(SDL_GetTextureScaleMode(Texture, Previous));
+  CheckGameSDL(SDL_GetTextureScaleMode(Texture, Previous), 'SDL_GetTextureScaleMode');
   if Previous = Mode then
     Exit;
   // SDL2 queues geometry without capturing its sampling mode. Finish those
   // draws before changing the texture; unchanged sampling retains batching.
-  Check(SDL_RenderFlush(GameSDLRenderer));
-  Check(SDL_GetRendererInfo(GameSDLRenderer, Info));
+  CheckGameSDL(SDL_RenderFlush(GameSDLRenderer), 'SDL_RenderFlush');
+  CheckGameSDL(SDL_GetRendererInfo(GameSDLRenderer, Info), 'SDL_GetRendererInfo');
   OpenGL := Pos('opengl', string(Info.Name)) = 1;
   if OpenGL then
     // The public bind/unbind API activates the context and repairs SDL2's GL
     // binding cache, including native texture wrappers. SetScaleMode alone does
     // neither reliably on GLES2. Other renderers do not expose GL textures.
-    Check(SDL_GL_BindTexture(Texture, nil, nil));
+    CheckGameSDL(SDL_GL_BindTexture(Texture, nil, nil), 'SDL_GL_BindTexture');
+  Completed := False;
   try
-    Check(SDL_SetTextureScaleMode(Texture, Mode));
+    CheckGameSDL(SDL_SetTextureScaleMode(Texture, Mode), 'SDL_SetTextureScaleMode');
+    Completed := True;
   finally
     if OpenGL then
-      Check(SDL_GL_UnbindTexture(Texture));
+      RestoreTextureBinding(Texture, not Completed);
   end;
 end;
 procedure Require(Condition: Boolean; const Operation: string);
@@ -276,7 +308,7 @@ begin
   Height := Desc.Height;
   if Screen and GameWindowUsesNativeRaster then
   begin
-    Check(SDL_GetRendererInfo(GameSDLRenderer, Info));
+    CheckGameSDL(SDL_GetRendererInfo(GameSDLRenderer, Info), 'SDL_GetRendererInfo');
     Viewport := GetGamePresentationRect(Desc.Width, Desc.Height);
     if Info.Flags and SDL_RENDERER_ACCELERATED <> 0 then
     begin
@@ -368,7 +400,10 @@ begin
     RasterScaleY := 1;
     Handle := SDL_CreateTexture(GameSDLRenderer, TextureFormat, Access, RasterWidth, RasterHeight);
   end;
-  Require(Handle <> nil, string(SDL_GetError));
+  if Handle = nil then
+    RaiseGameSDLError(
+        Format('SDL_CreateTexture(size=%dx%d, format=$%s, access=%d)', [RasterWidth, RasterHeight, IntToHex(TextureFormat, 8), Access])
+    );
   Generation := CurrentGeneration;
 end;
 
@@ -376,6 +411,7 @@ procedure TSDLStorage.Upload;
 var
   Converted: array of Cardinal;
   Texture, Previous: PSDL_Texture;
+  Completed: Boolean;
 begin
   Require(not Locked, 'drawing a locked texture');
   Realize;
@@ -386,31 +422,37 @@ begin
     begin
       if UploadTexture = nil then
         UploadTexture := SDL_CreateTexture(GameSDLRenderer, TextureFormat, SDL_TEXTUREACCESS_STATIC, Desc.Width, Desc.Height);
-      Require(UploadTexture <> nil, string(SDL_GetError));
+      if UploadTexture = nil then
+        RaiseGameSDLError(
+            Format('SDL_CreateTexture(upload, size=%dx%d, format=$%s)', [Desc.Width, Desc.Height, IntToHex(TextureFormat, 8)])
+        );
       Texture := UploadTexture;
     end;
     if PixelFormat(Desc.Format) = TextureFormat then
-      Check(SDL_UpdateTexture(Texture, nil, Pixels, Pitch))
+      CheckGameSDL(SDL_UpdateTexture(Texture, nil, Pixels, Pitch), 'SDL_UpdateTexture')
     else
     begin
       SetLength(Converted, SizeUInt(Desc.Width) * Desc.Height);
-      Check(
-          SDL_ConvertPixels(Desc.Width, Desc.Height, PixelFormat(Desc.Format), Pixels, Pitch, TextureFormat, @Converted[0], Desc.Width * 4)
+      CheckGameSDL(
+          SDL_ConvertPixels(Desc.Width, Desc.Height, PixelFormat(Desc.Format), Pixels, Pitch, TextureFormat, @Converted[0], Desc.Width * 4),
+          'SDL_ConvertPixels'
       );
-      Check(SDL_UpdateTexture(Texture, nil, @Converted[0], Desc.Width * 4));
+      CheckGameSDL(SDL_UpdateTexture(Texture, nil, @Converted[0], Desc.Width * 4), 'SDL_UpdateTexture');
     end;
     if Texture <> Handle then
     begin
       Previous := SDL_GetRenderTarget(GameSDLRenderer);
-      Check(SDL_SetRenderTarget(GameSDLRenderer, Handle));
+      CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, Handle), 'SDL_SetRenderTarget');
+      Completed := False;
       try
-        Check(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0));
-        Check(SDL_RenderSetClipRect(GameSDLRenderer, nil));
-        Check(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_NONE));
+        CheckGameSDL(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0), 'SDL_RenderSetLogicalSize');
+        CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, nil), 'SDL_RenderSetClipRect');
+        CheckGameSDL(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_NONE), 'SDL_SetTextureBlendMode');
         SetTextureSampling(Texture, SDL_ScaleModeNearest);
-        Check(SDL_RenderCopy(GameSDLRenderer, Texture, nil, nil));
+        CheckGameSDL(SDL_RenderCopy(GameSDLRenderer, Texture, nil, nil), 'SDL_RenderCopy');
+        Completed := True;
       finally
-        Check(SDL_SetRenderTarget(GameSDLRenderer, Previous));
+        RestoreTextureTarget(Previous, not Completed);
       end;
     end;
     Dirty := False;
@@ -476,20 +518,24 @@ end;
 procedure TSDLStorage.ReadRasterPixels(Dest: Pointer; DestPitch: Integer; DestFormat: Cardinal);
 var
   Previous: PSDL_Texture;
+  Completed: Boolean;
 begin
   Realize;
   Previous := SDL_GetRenderTarget(GameSDLRenderer);
-  Check(SDL_SetRenderTarget(GameSDLRenderer, Handle));
+  CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, Handle), 'SDL_SetRenderTarget');
+  Completed := False;
   try
-    Check(SDL_RenderReadPixels(GameSDLRenderer, nil, PixelFormat(DestFormat), Dest, DestPitch));
+    CheckGameSDL(SDL_RenderReadPixels(GameSDLRenderer, nil, PixelFormat(DestFormat), Dest, DestPitch), 'SDL_RenderReadPixels');
+    Completed := True;
   finally
-    Check(SDL_SetRenderTarget(GameSDLRenderer, Previous));
+    RestoreTextureTarget(Previous, not Completed);
   end;
 end;
 
 procedure TSDLStorage.ReadPixels(Dest: Pointer; DestPitch: Integer; DestFormat: Cardinal);
 var
   Previous, Readback: PSDL_Texture;
+  Completed, Restored: Boolean;
 begin
   if (RasterWidth = Integer(Desc.Width)) and (RasterHeight = Integer(Desc.Height)) then
   begin
@@ -500,19 +546,27 @@ begin
   // D3D locks, screenshots and screen copies still expose logical pixels.
   // Resize on the GPU before reading into their original logical-size buffers.
   Readback := SDL_CreateTexture(GameSDLRenderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, Desc.Width, Desc.Height);
-  Require(Readback <> nil, string(SDL_GetError));
+  if Readback = nil then
+    RaiseGameSDLError(Format('SDL_CreateTexture(readback target, size=%dx%d)', [Desc.Width, Desc.Height]));
   Previous := SDL_GetRenderTarget(GameSDLRenderer);
+  Completed := False;
   try
-    Check(SDL_SetRenderTarget(GameSDLRenderer, Readback));
-    Check(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0));
-    Check(SDL_RenderSetClipRect(GameSDLRenderer, nil));
-    Check(SDL_SetTextureBlendMode(Handle, SDL_BLENDMODE_NONE));
+    CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, Readback), 'SDL_SetRenderTarget');
+    CheckGameSDL(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0), 'SDL_RenderSetLogicalSize');
+    CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, nil), 'SDL_RenderSetClipRect');
+    CheckGameSDL(SDL_SetTextureBlendMode(Handle, SDL_BLENDMODE_NONE), 'SDL_SetTextureBlendMode');
     SetTextureSampling(Handle, SDL_ScaleModeLinear);
-    Check(SDL_RenderCopy(GameSDLRenderer, Handle, nil, nil));
-    Check(SDL_RenderReadPixels(GameSDLRenderer, nil, PixelFormat(DestFormat), Dest, DestPitch));
+    CheckGameSDL(SDL_RenderCopy(GameSDLRenderer, Handle, nil, nil), 'SDL_RenderCopy');
+    CheckGameSDL(SDL_RenderReadPixels(GameSDLRenderer, nil, PixelFormat(DestFormat), Dest, DestPitch), 'SDL_RenderReadPixels');
+    Completed := True;
   finally
-    Check(SDL_SetRenderTarget(GameSDLRenderer, Previous));
-    SDL_DestroyTexture(Readback);
+    Restored := False;
+    try
+      RestoreTextureTarget(Previous, not Completed);
+      Restored := True;
+    finally
+      DestroyReadbackTexture(Readback, not Completed or not Restored);
+    end;
   end;
 end;
 
@@ -746,7 +800,7 @@ end;
 
 procedure TSDLDevice.RebindRenderTarget;
 begin
-  Check(SDL_SetRenderTarget(GameSDLRenderer, nil));
+  CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, nil), 'SDL_SetRenderTarget');
   SDL_DestroyTexture(GammaTexture);
   GammaTexture := nil;
   if CurrentTarget <> nil then
@@ -855,11 +909,25 @@ begin
   A := ImageOf(Surface);
   Require(A.Target, 'non-target surface');
   A.Upload;
-  Check(SDL_SetRenderTarget(GameSDLRenderer, A.Handle));
-  Check(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0));
+  CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, A.Handle), 'SDL_SetRenderTarget');
+  CheckGameSDL(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0), 'SDL_RenderSetLogicalSize');
   CurrentTarget := Surface;
   Result := 0;
 end;
+
+procedure TSDLDevice.RestoreTarget(Target: IDirect3DSurface9; RestoreClip, PreserveFailure: Boolean);
+begin
+  try
+    SetRenderTarget(0, Target);
+    if RestoreClip then
+      SetScissorRect(@Clip);
+  except
+    if not PreserveFailure then
+      raise;
+    LogCurrentGameException('video', 'Secondary failure restoring graphics target');
+  end;
+end;
+
 function TSDLDevice.GetRenderTarget(Index: Cardinal; out Surface: IDirect3DSurface9): LongInt;
 begin
   Require(Index = 0, 'target index');
@@ -921,15 +989,16 @@ begin
               Screen.RasterHeight
           );
     end;
-    Require(GammaTexture <> nil, string(SDL_GetError));
-    Check(SDL_UpdateTexture(GammaTexture, nil, @GammaPixels[0], Screen.RasterWidth * 4));
+    if GammaTexture = nil then
+      RaiseGameSDLError(Format('SDL_CreateTexture(gamma, size=%dx%d)', [Screen.RasterWidth, Screen.RasterHeight]));
+    CheckGameSDL(SDL_UpdateTexture(GammaTexture, nil, @GammaPixels[0], Screen.RasterWidth * 4), 'SDL_UpdateTexture');
     Texture := GammaTexture;
   end;
-  Check(SDL_SetRenderTarget(GameSDLRenderer, nil));
+  CheckGameSDL(SDL_SetRenderTarget(GameSDLRenderer, nil), 'SDL_SetRenderTarget');
   DestinationPtr := nil;
   if GameWindowUsesNativeRaster then
   begin
-    Check(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0));
+    CheckGameSDL(SDL_RenderSetLogicalSize(GameSDLRenderer, 0, 0), 'SDL_RenderSetLogicalSize');
     Viewport := GetGamePresentationRect(Screen.Desc.Width, Screen.Desc.Height);
     Destination.X := Viewport.Left;
     Destination.Y := Viewport.Top;
@@ -939,11 +1008,11 @@ begin
   end
   else
     // Desktop SDL transforms Retina mouse events through this logical view.
-    Check(SDL_RenderSetLogicalSize(GameSDLRenderer, Screen.Desc.Width, Screen.Desc.Height));
-  Check(SDL_RenderSetClipRect(GameSDLRenderer, nil));
-  Check(SDL_SetRenderDrawColor(GameSDLRenderer, 0, 0, 0, 255));
-  Check(SDL_RenderClear(GameSDLRenderer));
-  Check(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_NONE));
+    CheckGameSDL(SDL_RenderSetLogicalSize(GameSDLRenderer, Screen.Desc.Width, Screen.Desc.Height), 'SDL_RenderSetLogicalSize');
+  CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, nil), 'SDL_RenderSetClipRect');
+  CheckGameSDL(SDL_SetRenderDrawColor(GameSDLRenderer, 0, 0, 0, 255), 'SDL_SetRenderDrawColor');
+  CheckGameSDL(SDL_RenderClear(GameSDLRenderer), 'SDL_RenderClear');
+  CheckGameSDL(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_NONE), 'SDL_SetTextureBlendMode');
   // The native raster target already matches the fitted output. Interpolate only
   // when a resized surface or a smaller fallback target needs fractional scaling.
   Filter := SDL_ScaleModeLinear;
@@ -954,17 +1023,17 @@ begin
   end
   else
   begin
-    Check(SDL_GetRendererOutputSize(GameSDLRenderer, OutputWidth, OutputHeight));
+    CheckGameSDL(SDL_GetRendererOutputSize(GameSDLRenderer, OutputWidth, OutputHeight), 'SDL_GetRendererOutputSize');
     Scale := Min(OutputWidth / Screen.RasterWidth, OutputHeight / Screen.RasterHeight);
     if (Scale >= 1) and (Scale = Round(Scale)) then
       Filter := SDL_ScaleModeNearest;
   end;
   SetTextureSampling(Texture, Filter);
-  Check(SDL_RenderCopy(GameSDLRenderer, Texture, nil, DestinationPtr));
+  CheckGameSDL(SDL_RenderCopy(GameSDLRenderer, Texture, nil, DestinationPtr), 'SDL_RenderCopy');
 {$IFDEF FPC_WASM_EMSCRIPTEN}
   // Submit drawing before waiting; the browser presents the completed buffer
   // at its own refresh cadence, which need not be 60 Hz.
-  Check(SDL_RenderFlush(GameSDLRenderer));
+  CheckGameSDL(SDL_RenderFlush(GameSDLRenderer), 'SDL_RenderFlush');
   BrowserWaitFrame;
 {$ENDIF}
   SDL_RenderPresent(GameSDLRenderer);
@@ -982,8 +1051,11 @@ function TSDLDevice.Clear(RectCount: Cardinal; Rects: PRect; Flags, Color: Cardi
 begin
   TestCooperativeLevel;
   Require((RectCount = 0) and (Flags = 1), 'partial/depth clear');
-  Check(SDL_SetRenderDrawColor(GameSDLRenderer, Byte(Color shr 16), Byte(Color shr 8), Byte(Color), Byte(Color shr 24)));
-  Check(SDL_RenderClear(GameSDLRenderer));
+  CheckGameSDL(
+      SDL_SetRenderDrawColor(GameSDLRenderer, Byte(Color shr 16), Byte(Color shr 8), Byte(Color), Byte(Color shr 24)),
+      'SDL_SetRenderDrawColor'
+  );
+  CheckGameSDL(SDL_RenderClear(GameSDLRenderer), 'SDL_RenderClear');
   Result := 0
 end;
 function TSDLDevice.SetRenderState(State, Value: Cardinal): LongInt;
@@ -1027,7 +1099,7 @@ begin
   Require(Rect <> nil, 'nil scissor');
   Clip := Rect^;
   Value := ImageOf(CurrentTarget).RasterClipRect(Clip);
-  Check(SDL_RenderSetClipRect(GameSDLRenderer, @Value));
+  CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, @Value), 'SDL_RenderSetClipRect');
   Result := 0;
 end;
 function TSDLDevice.GetScissorRect(out Rect: TRect): LongInt;
@@ -1039,22 +1111,28 @@ function TSDLDevice.ColorFill(Surface: IDirect3DSurface9; Rect: PRect; Color: Ca
 var
   Previous: IDirect3DSurface9;
   Value: TSDL_Rect;
+  Completed: Boolean;
 begin
   Previous := CurrentTarget;
   SetRenderTarget(0, Surface);
+  Completed := False;
   try
-    Check(SDL_RenderSetClipRect(GameSDLRenderer, nil));
-    Check(SDL_SetRenderDrawBlendMode(GameSDLRenderer, SDL_BLENDMODE_NONE));
-    Check(SDL_SetRenderDrawColor(GameSDLRenderer, Byte(Color shr 16), Byte(Color shr 8), Byte(Color), Byte(Color shr 24)));
+    CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, nil), 'SDL_RenderSetClipRect');
+    CheckGameSDL(SDL_SetRenderDrawBlendMode(GameSDLRenderer, SDL_BLENDMODE_NONE), 'SDL_SetRenderDrawBlendMode');
+    CheckGameSDL(
+        SDL_SetRenderDrawColor(GameSDLRenderer, Byte(Color shr 16), Byte(Color shr 8), Byte(Color), Byte(Color shr 24)),
+        'SDL_SetRenderDrawColor'
+    );
     if Rect = nil then
-      Check(SDL_RenderClear(GameSDLRenderer))
+      CheckGameSDL(SDL_RenderClear(GameSDLRenderer), 'SDL_RenderClear')
     else
     begin
       Value := ImageOf(Surface).RasterRect(Rect^, True);
-      Check(SDL_RenderFillRect(GameSDLRenderer, @Value));
+      CheckGameSDL(SDL_RenderFillRect(GameSDLRenderer, @Value), 'SDL_RenderFillRect');
     end;
+    Completed := True;
   finally
-    SetRenderTarget(0, Previous);
+    RestoreTarget(Previous, False, not Completed);
   end;
   Result := 0;
 end;
@@ -1071,11 +1149,13 @@ var
   Image: TSDLStorage;
   A, B: TSDL_Rect;
   PA, PB: PSDL_Rect;
+  Completed: Boolean;
 begin
   Image := ImageOf(Source);
   Image.Upload;
   Previous := CurrentTarget;
   SetRenderTarget(0, Dest);
+  Completed := False;
   try
     PA := nil;
     if SourceRect <> nil then
@@ -1088,13 +1168,13 @@ begin
     else
       B := ImageOf(Dest).RasterRect(Types.Rect(0, 0, ImageOf(Dest).Desc.Width, ImageOf(Dest).Desc.Height), True);
     PB := @B;
-    Check(SDL_SetTextureBlendMode(Image.Handle, SDL_BLENDMODE_NONE));
+    CheckGameSDL(SDL_SetTextureBlendMode(Image.Handle, SDL_BLENDMODE_NONE), 'SDL_SetTextureBlendMode');
     SetTextureSampling(Image.Handle, Ord(Filter = D3DTEXF_LINEAR));
-    Check(SDL_RenderSetClipRect(GameSDLRenderer, nil));
-    Check(SDL_RenderCopy(GameSDLRenderer, Image.Handle, PA, PB));
+    CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, nil), 'SDL_RenderSetClipRect');
+    CheckGameSDL(SDL_RenderCopy(GameSDLRenderer, Image.Handle, PA, PB), 'SDL_RenderCopy');
+    Completed := True;
   finally
-    SetRenderTarget(0, Previous);
-    SetScissorRect(@Clip);
+    RestoreTarget(Previous, True, not Completed);
   end;
   Result := 0;
 end;
@@ -1152,15 +1232,16 @@ var
     if (Distance = 0)
         or (CompareMem(@Color, @Vertices[Last].Color, SizeOf(Color)) and (Transform.ScaleX = 1) and (Transform.ScaleY = 1)) then
     begin
-      Check(SDL_SetRenderDrawColor(GameSDLRenderer, Color.R, Color.G, Color.B, Color.A));
-      Check(
+      CheckGameSDL(SDL_SetRenderDrawColor(GameSDLRenderer, Color.R, Color.G, Color.B, Color.A), 'SDL_SetRenderDrawColor');
+      CheckGameSDL(
           SDL_RenderDrawLineF(
               GameSDLRenderer,
               Vertices[First].Position.X,
               Vertices[First].Position.Y,
               Vertices[Last].Position.X,
               Vertices[Last].Position.Y
-          )
+          ),
+          'SDL_RenderDrawLineF'
       );
       Exit;
     end;
@@ -1183,7 +1264,7 @@ var
     Line[2].Position.Y := Line[2].Position.Y - NY;
     Line[3].Position.X := Line[3].Position.X - NX;
     Line[3].Position.Y := Line[3].Position.Y - NY;
-    Check(SDL_RenderGeometry(GameSDLRenderer, nil, @Line, Length(Line), @Order, Length(Order)));
+    CheckGameSDL(SDL_RenderGeometry(GameSDLRenderer, nil, @Line, Length(Line), @Order, Length(Order)), 'SDL_RenderGeometry');
   end;
 
 begin
@@ -1218,26 +1299,26 @@ begin
     Image := ImageOf(CurrentTexture);
     Image.Upload;
     Texture := Image.Handle;
-    Check(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_BLEND));
+    CheckGameSDL(SDL_SetTextureBlendMode(Texture, SDL_BLENDMODE_BLEND), 'SDL_SetTextureBlendMode');
     SetTextureSampling(Texture, Ord(LinearFilter and not IsPixelAlignedQuad));
   end;
   Value := Target.RasterClipRect(Clip);
-  Check(SDL_RenderSetClipRect(GameSDLRenderer, @Value));
-  Check(SDL_SetRenderDrawBlendMode(GameSDLRenderer, SDL_BLENDMODE_BLEND));
+  CheckGameSDL(SDL_RenderSetClipRect(GameSDLRenderer, @Value), 'SDL_RenderSetClipRect');
+  CheckGameSDL(SDL_SetRenderDrawBlendMode(GameSDLRenderer, SDL_BLENDMODE_BLEND), 'SDL_SetRenderDrawBlendMode');
   if PrimitiveType = D3DPT_POINTLIST then
     for Index := 0 to Count - 1 do
     begin
       Color := Vertices[Index].Color;
-      Check(SDL_SetRenderDrawColor(GameSDLRenderer, Color.R, Color.G, Color.B, Color.A));
+      CheckGameSDL(SDL_SetRenderDrawColor(GameSDLRenderer, Color.R, Color.G, Color.B, Color.A), 'SDL_SetRenderDrawColor');
       if (Transform.ScaleX = 1) and (Transform.ScaleY = 1) then
-        Check(SDL_RenderDrawPointF(GameSDLRenderer, Vertices[Index].Position.X, Vertices[Index].Position.Y))
+        CheckGameSDL(SDL_RenderDrawPointF(GameSDLRenderer, Vertices[Index].Position.X, Vertices[Index].Position.Y), 'SDL_RenderDrawPointF')
       else
       begin
         Value.X := Round(Vertices[Index].Position.X - Transform.ScaleX * 0.5);
         Value.Y := Round(Vertices[Index].Position.Y - Transform.ScaleY * 0.5);
         Value.W := Max(1, Round(Vertices[Index].Position.X + Transform.ScaleX * 0.5) - Value.X);
         Value.H := Max(1, Round(Vertices[Index].Position.Y + Transform.ScaleY * 0.5) - Value.Y);
-        Check(SDL_RenderFillRect(GameSDLRenderer, @Value));
+        CheckGameSDL(SDL_RenderFillRect(GameSDLRenderer, @Value), 'SDL_RenderFillRect');
       end;
     end
   else if PrimitiveType = D3DPT_LINESTRIP then
@@ -1271,7 +1352,7 @@ begin
       end;
     end;
     if not Wireframe then
-      Check(SDL_RenderGeometry(GameSDLRenderer, Texture, @Vertices[0], Count, @Indices[0], Length(Indices)));
+      CheckGameSDL(SDL_RenderGeometry(GameSDLRenderer, Texture, @Vertices[0], Count, @Indices[0], Length(Indices)), 'SDL_RenderGeometry');
   end;
   Result := 0;
 end;
@@ -1631,6 +1712,10 @@ initialization
   GameGraphicsTransform := GameGraphicsIdentityTransform;
   RetiredTextures := TThreadList.Create;
 finalization
-  CollectTextures;
+  try
+    CollectTextures;
+  except
+    LogCurrentGameException('video', 'Releasing retired graphics textures during shutdown');
+  end;
   RetiredTextures.Free;
 end.

@@ -45,6 +45,7 @@ function AcquireCachedGi(Control: TCacheControlEC): TCGiEC;
 implementation
 
 uses
+  GameDiagnostics,
   EC_Mem,
   EC_Str,
   GI_LayoutMetrics,
@@ -262,16 +263,10 @@ var
     WorkingImage.Free;
   end;
 
-  procedure LogWideScreenGiRescaleStart;
-  begin
-    if not Quiet then
-      AppendLogTextThreadSafe('Rescaling ' + ResourceKey + '... ');
-  end;
-
   procedure LogWideScreenGiRescaleDone;
   begin
     if not Quiet then
-      AppendLogLineThreadSafe('ok');
+      LogGameMessage(gllDebug, 'resources', 'Rescaled GI image ' + ResourceKey);
   end;
 begin
   LayoutSize := GetNormalGameLayoutSize;
@@ -317,7 +312,6 @@ begin
   // Auto-positioned HUD images need a new bottom origin even at 1024px wide.
   if ((HudWidth <> 1024) or (HudHeight <> 768)) and (ResourceKey = HudKey) then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -333,7 +327,6 @@ begin
   end
   else if ((ExtraWidth > 0) or (ExtraHeight > 0)) and (ResourceKey = 'Bm.FormMain2.2AnimMain') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -371,7 +364,6 @@ begin
   end
   else if (ContentExtraHeight <> 0) and (ContentKey = 'Bm.FormGov2.' + GiResourceSuffix + 'TWin') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -405,7 +397,6 @@ begin
   end
   else if (ContentExtraHeight <> 0) and (ContentKey = 'Bm.FormGov2.' + GiResourceSuffix + 'TWinB') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -429,7 +420,6 @@ begin
   end
   else if (ContentExtraHeight <> 0) and (ContentKey = 'Bm.FormInfo3.' + GiResourceSuffix + 'BG') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -457,7 +447,6 @@ begin
     Delta := MeasureShopExpansion(LayoutWidth).Width;
     if Delta <> 0 then
     begin
-      LogWideScreenGiRescaleStart;
       SourceGraph := TGraphBufGR.Create(False);
       RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
       DestGraph := TGraphBufGR.Create(False);
@@ -484,7 +473,6 @@ begin
     Delta := MeasureShopExpansion(LayoutWidth).Width;
     if Delta <> 0 then
     begin
-      LogWideScreenGiRescaleStart;
       SourceGraph := TGraphBufGR.Create(False);
       RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
       DestGraph := TGraphBufGR.Create(False);
@@ -502,7 +490,6 @@ begin
       and ((ResourceKey = 'Bm.FormOptions2.' + GiResourceSuffix + 'Left')
           or (ResourceKey = 'Bm.FormOptions2.' + GiResourceSuffix + 'Right')) then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -536,7 +523,6 @@ begin
   end
   else if (ExtraWidth > 0) and (ResourceKey = 'Bm.FormGameSet2.' + GiResourceSuffix + 'Footer') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -561,7 +547,6 @@ begin
   end
   else if (ResourceKey = 'Bm.FormIntro2.PanelTop') or (ResourceKey = 'Bm.FormEnd2.PanelTop') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -576,7 +561,6 @@ begin
   end
   else if (ExtraWidth > 0) and (ResourceKey = 'Bm.FormIntro2.PanelBottom') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -592,7 +576,6 @@ begin
   end
   else if ResourceKey = 'Bm.FormEnd2.PanelBottom' then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -607,7 +590,6 @@ begin
   end
   else if ((ExtraWidth > 0) or (ExtraHeight > 0)) and (ResourceKey = 'Bm.FormPQuest2.2Panel') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -645,7 +627,6 @@ begin
               and IsIntegerTextW(CopyWideStringUnchecked(ResourceKey, 18, Length(ResourceKey) - 17)))
           or ((FindTextOffsetW(ResourceKey, 'Bm.FormPQuest2.') = 0) and (FindTextOffsetW(ResourceKey, 'rescale') > 0))) then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     DestGraph := TGraphBufGR.Create(False);
@@ -666,7 +647,6 @@ begin
       or (ResourceKey = 'Bm.FormRuins.' + GiResourceSuffix + 'CBbg')
       or (ResourceKey = 'Bm.FormRuins.' + GiResourceSuffix + 'DestroyerBridgebg') then
   begin
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     SourceGraph.RescaleRgbaLinear(LayoutWidth, LayoutHeight, True, 1, 1);
@@ -731,7 +711,6 @@ begin
       PreserveAlpha := True;
       Quiet := True;
     until True;
-    LogWideScreenGiRescaleStart;
     SourceGraph := TGraphBufGR.Create(False);
     RenderGiBufferToGraphBuf(SourceBuffer, SourceGraph);
     Delta := SourceGraph.Width;

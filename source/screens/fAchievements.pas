@@ -41,6 +41,7 @@ type
 implementation
 
 uses
+  GameDiagnostics,
   GI_Main,
   GameInput,
   Classes,
@@ -71,7 +72,7 @@ end;
 procedure TfAchievements.InitializeLayout;
 begin
   inherited InitializeLayout;
-  AppendLogTextThreadSafe('fAchievements... ');
+  LogGameMessage(gllDebug, 'ui', 'Initializing layout fAchievements');
   ViewportRect := Classes.Rect(0, 0, GameScreenWidth, GameScreenHeight);
   with GetByName('') do
   begin
@@ -80,7 +81,6 @@ begin
     with FindByNameRecursive('MainPanel') do
       SetPosition(Classes.Point((GameScreenWidth - ClientSize.X) div 2, (GameScreenHeight - ClientSize.Y) div 2));
   end;
-  AppendLogLineThreadSafe('ok');
   GetByName('MainPanel').KeyDownCallback := KeyDown;
   (GetByName('ButClose') as TGraphButtonGI).UpCallback := CloseClicked;
 end;

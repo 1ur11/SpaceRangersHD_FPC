@@ -23,6 +23,20 @@ You need your own game data. Releases are built automatically from source change
 - Some Android screens and controls look rough or out of place. The original UI
   uses fixed desktop layouts and bitmap artwork, and adapting them for smaller
   touchscreens is still in progress.
+- The robot battle engine is not integrated yet; planetary battles automatically
+  count as victories and grant the normal rewards.
+
+## Logs
+
+Find `rangers-fpc.log` here (the error dialog also shows its path):
+
+- Windows: `%USERPROFILE%\Documents\SpaceRangersHD\` (paste into File Explorer's address bar).
+  If Documents was moved, enter `shell:Personal` instead, then open `SpaceRangersHD`.
+- macOS: `~/Library/Application Support/SpaceRangersHD/`.
+- Linux: `$XDG_DATA_HOME/SpaceRangersHD/`, or `~/.local/share/SpaceRangersHD/`.
+
+Attach this file when reporting a problem. Set `SR_LOG_LEVEL=debug` before launch
+for more detail, or `warning` / `error` for less output (default: `info`).
 
 ## Layout
 

@@ -99,6 +99,7 @@ function EstimateCpuClockMHz: Double;
 implementation
 
 uses
+  GameDiagnostics,
   GameWindow,
   GameSystem,
   aGalaxyStruct,
@@ -148,7 +149,7 @@ end;
 procedure TfCfgSettings.InitializeLayout;
 begin
   inherited InitializeLayout;
-  AppendLogTextThreadSafe('fCfgSettings... ');
+  LogGameMessage(gllDebug, 'ui', 'Initializing layout fCfgSettings');
   ViewportRect := Classes.Rect(0, 0, GameScreenWidth, GameScreenHeight);
   with GetByName('MainPanel') do
   begin
@@ -187,7 +188,6 @@ begin
     with FirstChild.NextSibling do
       SetDepth(Depth - 2);
   end;
-  AppendLogLineThreadSafe('ok');
   with GetByName('Cancel') as TGraphButtonGI do
     UpCallback := CancelClicked;
   (GetByName('Ok') as TGraphButtonGI).UpCallback := ApplyClicked;

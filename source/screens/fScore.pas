@@ -104,6 +104,7 @@ type
 implementation
 
 uses
+  GameDiagnostics,
   GI_Main,
   aKling,
   SysUtils,
@@ -1231,7 +1232,7 @@ end;
 procedure TfScore.InitializeLayout;
 begin
   inherited InitializeLayout;
-  AppendLogTextThreadSafe('fScore... ');
+  LogGameMessage(gllDebug, 'ui', 'Initializing layout fScore');
   ViewportRect := Classes.Rect(0, 0, GameScreenWidth, GameScreenHeight);
   with GetByName('MainPanel') do
   begin
@@ -1242,7 +1243,6 @@ begin
     with FindByNameRecursive('PanelWin') do
       SetPosition(Classes.Point(LocalPosition.X + ExtraScreenWidth div 2, LocalPosition.Y + ExtraScreenHeight div 2));
   end;
-  AppendLogLineThreadSafe('ok');
   SetHelpCallback(ShowControlHelp);
   (GetByName('ButClear') as TGraphButtonGI).UpCallback := DeleteEntryClicked;
   (GetByName('ButExit') as TGraphButtonGI).UpCallback := CloseClicked;
