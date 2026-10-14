@@ -36,10 +36,7 @@ type
     function PixelScale: Double;
   end;
 
-function CalculateGamePresentation(
-    const Metrics: TGameDisplayMetrics;
-    Width, Height: Integer
-): TGamePresentation;
+function CalculateGamePresentation(const Metrics: TGameDisplayMetrics; Width, Height: Integer): TGamePresentation;
 
 procedure InitializeGameVideo;
 function GameWindowUsesCanvas: Boolean;
@@ -228,9 +225,7 @@ begin
   // the game's mask before SDL can initialize a driver (Metal may overflow
   // internal sampler calculations), rather than waiting for GR_DXInit.
   ClearExceptions(False);
-  SetExceptionMask(
-      [exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]
-  );
+  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide, exOverflow, exUnderflow, exPrecision]);
   SDL_SetMainReady;
   // Handle native fingers ourselves; synthesized mouse presses commit game
   // actions before the user can distinguish a tap from a drag.
@@ -440,10 +435,7 @@ begin
   end;
 end;
 
-function CalculateGamePresentation(
-    const Metrics: TGameDisplayMetrics;
-    Width, Height: Integer
-): TGamePresentation;
+function CalculateGamePresentation(const Metrics: TGameDisplayMetrics; Width, Height: Integer): TGamePresentation;
 var
   W, H: Integer;
   Scale: Double;
@@ -471,12 +463,7 @@ function TGamePresentation.WindowToLogical(X, Y: Integer): TPoint;
 var
   LX, LY: Double;
 begin
-  OutputToLogical(
-      X * Metrics.OutputSize.X / Max(1, Metrics.WindowSize.X),
-      Y * Metrics.OutputSize.Y / Max(1, Metrics.WindowSize.Y),
-      LX,
-      LY
-  );
+  OutputToLogical(X * Metrics.OutputSize.X / Max(1, Metrics.WindowSize.X), Y * Metrics.OutputSize.Y / Max(1, Metrics.WindowSize.Y), LX, LY);
   Result := Types.Point(Floor(LX), Floor(LY));
 end;
 
@@ -484,25 +471,17 @@ function TGamePresentation.LogicalToWindow(X, Y: Integer): TPoint;
 begin
   Result.X :=
       Round(
-          (OutputRect.Left + X * (OutputRect.Right - OutputRect.Left) / LogicalSize.X)
-              * Metrics.WindowSize.X
-              / Max(1, Metrics.OutputSize.X)
+          (OutputRect.Left + X * (OutputRect.Right - OutputRect.Left) / LogicalSize.X) * Metrics.WindowSize.X / Max(1, Metrics.OutputSize.X)
       );
   Result.Y :=
       Round(
-          (OutputRect.Top + Y * (OutputRect.Bottom - OutputRect.Top) / LogicalSize.Y)
-              * Metrics.WindowSize.Y
-              / Max(1, Metrics.OutputSize.Y)
+          (OutputRect.Top + Y * (OutputRect.Bottom - OutputRect.Top) / LogicalSize.Y) * Metrics.WindowSize.Y / Max(1, Metrics.OutputSize.Y)
       );
 end;
 
 function TGamePresentation.PixelScale: Double;
 begin
-  Result :=
-      Min(
-          (OutputRect.Right - OutputRect.Left) / LogicalSize.X,
-          (OutputRect.Bottom - OutputRect.Top) / LogicalSize.Y
-      );
+  Result := Min((OutputRect.Right - OutputRect.Left) / LogicalSize.X, (OutputRect.Bottom - OutputRect.Top) / LogicalSize.Y);
 end;
 
 function GetGamePresentationRect(Width, Height: Integer): TRect;
@@ -521,8 +500,7 @@ begin
   Result := 1;
   if (GameSDLWindow = nil) or (LogicalWidth <= 0) or (LogicalHeight <= 0) then
     Exit;
-  Result :=
-      CalculateGamePresentation(GetGameDisplayMetrics, LogicalWidth, LogicalHeight).PixelScale;
+  Result := CalculateGamePresentation(GetGameDisplayMetrics, LogicalWidth, LogicalHeight).PixelScale;
 end;
 
 function GetGameMobileUiScale(DpPerSourcePixel: Single): Single;
@@ -568,15 +546,7 @@ begin
     Flags := SDL_WINDOW_ALLOW_HIGHDPI;
     if BrowserWindow or FullscreenOnlyWindow then
       Flags := Flags or SDL_WINDOW_RESIZABLE;
-    GameSDLWindow :=
-        SDL_CreateWindow(
-            'Rangers',
-            SDL_WINDOWPOS_CENTERED,
-            SDL_WINDOWPOS_CENTERED,
-            WindowSize.X,
-            WindowSize.Y,
-            Flags
-        );
+    GameSDLWindow := SDL_CreateWindow('Rangers', SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowSize.X, WindowSize.Y, Flags);
     if GameSDLWindow = nil then
       raise Exception.Create(string(SDL_GetError));
     Flags := SDL_RENDERER_ACCELERATED or SDL_RENDERER_TARGETTEXTURE;
@@ -584,12 +554,7 @@ begin
       Flags := Flags or SDL_RENDERER_PRESENTVSYNC;
     GameSDLRenderer := SDL_CreateRenderer(GameSDLWindow, -1, Flags);
     if GameSDLRenderer = nil then
-      GameSDLRenderer :=
-          SDL_CreateRenderer(
-              GameSDLWindow,
-              -1,
-              SDL_RENDERER_SOFTWARE or SDL_RENDERER_TARGETTEXTURE
-          );
+      GameSDLRenderer := SDL_CreateRenderer(GameSDLWindow, -1, SDL_RENDERER_SOFTWARE or SDL_RENDERER_TARGETTEXTURE);
     if GameSDLRenderer = nil then
     begin
       SDL_DestroyWindow(GameSDLWindow);
@@ -849,8 +814,7 @@ begin
     begin
       if AppInBackground
           or (ArcadeControls and 1 = 0)
-          or (Cardinal(PtrUInt(Event.User.Data2)) and $FFFFFF00
-              <> ArcadeControls and $FFFFFF00) then
+          or (Cardinal(PtrUInt(Event.User.Data2)) and $FFFFFF00 <> ArcadeControls and $FFFFFF00) then
         Continue;
       Message.Message := WM_GAME_ARCADE_INPUT;
       Message.WParam := Cardinal(PtrUInt(Event.User.Data2)) and 3;
@@ -873,12 +837,7 @@ begin
       // game thread, because SDL's hint storage is not thread-safe.
       if not MobileWindow or (PtrInt(Event.User.Data1) <= 0) then
         Continue;
-      TouchSlop :=
-          EnsureRange(
-              Round(TouchSlop * (PtrInt(Event.User.Data1) / 160.0) / MobileDensity),
-              1,
-              256
-          );
+      TouchSlop := EnsureRange(Round(TouchSlop * (PtrInt(Event.User.Data1) / 160.0) / MobileDensity), 1, 256);
       MobileDensity := PtrInt(Event.User.Data1) / 160.0;
       InterlockedIncrement(GameDisplayGeneration);
       Message.Message := WM_GAME_DISPLAY_CHANGED;
@@ -896,8 +855,7 @@ begin
       // Touch-to-mouse synthesis is disabled, so SDL's mouse position is stale.
       GetGameMouse(Point);
       Message.Message := WM_MOUSEWHEEL;
-      Message.WParam :=
-          MouseKeys(GameMouseState(nil, nil)) or (Cardinal(Word(Step * WHEEL_DELTA)) shl 16);
+      Message.WParam := MouseKeys(GameMouseState(nil, nil)) or (Cardinal(Word(Step * WHEEL_DELTA)) shl 16);
       Message.LParam := PackGamePoint(Point.X, Point.Y);
       Exit;
     end;
@@ -1072,8 +1030,7 @@ begin
           // With SDL's logical-size transform disabled, fingers are normalized
           // to the complete output. Use exactly the integer destination used by
           // presentation, including any intentional aspect-ratio letterbox.
-          Presentation :=
-              CalculateGamePresentation(GetGameDisplayMetrics, LogicalWidth, LogicalHeight);
+          Presentation := CalculateGamePresentation(GetGameDisplayMetrics, LogicalWidth, LogicalHeight);
           Presentation.OutputToLogical(
               Event.Finger.X * Presentation.Metrics.OutputSize.X,
               Event.Finger.Y * Presentation.Metrics.OutputSize.Y,
@@ -1093,15 +1050,9 @@ begin
         // their move/up events so dragging out of the view still releases it.
         // SDL clamps desktop/browser letterbox contacts to the normalized edge;
         // their original position is lost. Do not turn those into edge clicks.
-        if (Phase = tpDown)
-            and not GameWindowUsesNativeRaster
-            and ((FingerX <= 0) or (FingerY <= 0)) then
+        if (Phase = tpDown) and not GameWindowUsesNativeRaster and ((FingerX <= 0) or (FingerY <= 0)) then
           Continue;
-        if (Phase = tpDown)
-            and ((FingerX < 0)
-                or (FingerX >= LogicalWidth)
-                or (FingerY < 0)
-                or (FingerY >= LogicalHeight)) then
+        if (Phase = tpDown) and ((FingerX < 0) or (FingerX >= LogicalWidth) or (FingerY < 0) or (FingerY >= LogicalHeight)) then
           Continue;
         PointerCursorActive := False;
 {$IFDEF SWITCH}
@@ -1150,10 +1101,7 @@ end;
 
 function GameWindowFocused: Boolean;
 begin
-  Result :=
-      (GameSDLWindow <> nil)
-          and not AppInBackground
-          and (SDL_GetWindowFlags(GameSDLWindow) and SDL_WINDOW_INPUT_FOCUS <> 0);
+  Result := (GameSDLWindow <> nil) and not AppInBackground and (SDL_GetWindowFlags(GameSDLWindow) and SDL_WINDOW_INPUT_FOCUS <> 0);
 end;
 
 function GameKeyState(Key: Integer): SmallInt;
@@ -1408,9 +1356,7 @@ end;
 
 procedure ShowGameDialog(const Text: UnicodeString);
 begin
-  CheckSDL(
-      SDL_ShowSimpleMessageBox($10, 'Space Rangers', PAnsiChar(UTF8Encode(Text)), GameSDLWindow)
-  );
+  CheckSDL(SDL_ShowSimpleMessageBox($10, 'Space Rangers', PAnsiChar(UTF8Encode(Text)), GameSDLWindow));
 end;
 
 finalization

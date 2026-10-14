@@ -37,26 +37,11 @@ type
 
   POkgfReadContext = PointerToTOkgfReadContext;
 
-function OKGF_ZLib_Compress(
-    Dest: Pointer;
-    Source: Pointer;
-    SourceSize: Integer;
-    Mode: Integer
-): Integer; stdcall;
+function OKGF_ZLib_Compress(Dest: Pointer; Source: Pointer; SourceSize: Integer; Mode: Integer): Integer; stdcall;
 
-function OKGF_ZLib_UnCompress(
-    Dest: Pointer;
-    DestCapacity: Integer;
-    Source: Pointer;
-    SourceSize: Integer
-): Integer; stdcall;
+function OKGF_ZLib_UnCompress(Dest: Pointer; DestCapacity: Integer; Source: Pointer; SourceSize: Integer): Integer; stdcall;
 
-function OKGF_ZLib_UnCompress2(
-    Dest: Pointer;
-    DestCapacity: Integer;
-    Source: Pointer;
-    SourceSize: Integer
-): Integer; stdcall;
+function OKGF_ZLib_UnCompress2(Dest: Pointer; DestCapacity: Integer; Source: Pointer; SourceSize: Integer): Integer; stdcall;
 
 implementation
 
@@ -65,12 +50,7 @@ uses
   ZDeflate,
   ZInflate;
 
-function OKGF_ZLib_Compress(
-    Dest: Pointer;
-    Source: Pointer;
-    SourceSize: Integer;
-    Mode: Integer
-): Integer; stdcall;
+function OKGF_ZLib_Compress(Dest: Pointer; Source: Pointer; SourceSize: Integer; Mode: Integer): Integer; stdcall;
 var
   Stream: z_stream;
   Level: Integer;
@@ -104,13 +84,7 @@ begin
   end;
 end;
 
-function ExpandZlibBlock(
-    Dest: Pointer;
-    DestCapacity: Integer;
-    Source: Pointer;
-    SourceSize: Integer;
-    RequiredMagic: Cardinal
-): Integer;
+function ExpandZlibBlock(Dest: Pointer; DestCapacity: Integer; Source: Pointer; SourceSize: Integer; RequiredMagic: Cardinal): Integer;
 var
   Magic, ExpectedSize: Cardinal;
   Stream: z_stream;
@@ -147,22 +121,12 @@ begin
   end;
 end;
 
-function OKGF_ZLib_UnCompress(
-    Dest: Pointer;
-    DestCapacity: Integer;
-    Source: Pointer;
-    SourceSize: Integer
-): Integer; stdcall;
+function OKGF_ZLib_UnCompress(Dest: Pointer; DestCapacity: Integer; Source: Pointer; SourceSize: Integer): Integer; stdcall;
 begin
   Result := ExpandZlibBlock(Dest, DestCapacity, Source, SourceSize, $31304C5A);
 end;
 
-function OKGF_ZLib_UnCompress2(
-    Dest: Pointer;
-    DestCapacity: Integer;
-    Source: Pointer;
-    SourceSize: Integer
-): Integer; stdcall;
+function OKGF_ZLib_UnCompress2(Dest: Pointer; DestCapacity: Integer; Source: Pointer; SourceSize: Integer): Integer; stdcall;
 begin
   Result := ExpandZlibBlock(Dest, DestCapacity, Source, SourceSize, $32304C5A);
 end;
