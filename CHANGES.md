@@ -95,14 +95,23 @@ are omitted.
   `source/resources/EC_HsFile.pas` use FPC file I/O and convert separators at the
   filesystem boundary, keeping package lookup keys separate. `NativeGamePath` in
   `platform/GameSystem.pas` resolves case differences on Unix, including loose resources
-  and existing output directories. BMP/PNG paths retain Unicode names until passed to
-  OKGF.
+  and existing output directories. Filename comparison preserves punctuation even
+  with Android's Unicode collation, and search masks retain their wildcards. Exact
+  paths win; ordinal spelling breaks ties when case correction is ambiguous.
+  `ResolveGameRelativePath` uses the same matching rule to recover relative game
+  keys below a known root without re-enumerating its ancestors. BMP/PNG paths
+  retain Unicode names until passed to OKGF.
 - **Profiles and discovery.** User paths preserve UTF-8 names and ignore relative
   `XDG_DATA_HOME`; a failed resource-directory change is reported. Saves consistently
   use `Save`, including temporary output. Languages, mod resources, saves and robot maps
-  retain case-insensitive matching. `ScanModFolders` in `source/resources/aModsInfo.pas`
-  scans explicit directories, preserving the caller's working directory and avoiding
-  false mod detections.
+  retain case-insensitive matching. Mod discovery and metadata loading in
+  `source/resources/aModsInfo.pas` use explicit paths without changing the
+  working directory; metadata includes retain their mod directory as their lookup
+  root. Saved mod selections match folder names without case sensitivity, retain
+  their order and selected state after reload, and ignore repeated entries. The
+  original case-sensitive folder order (including equal-priority load order) is
+  preserved. Physical folders differing only in case remain separate; saved
+  selections use the same path resolution as resource loading.
 - **Package layout and access.** `source/resources/EC_HsFile.pas` keeps
   `DiskPackEntrySize` at 158 bytes while allowing native pointers in memory. Read-only
   packages are supported; WASI uses its descriptor-close API. Per-entry next-block

@@ -89,9 +89,15 @@ type
     procedure WriteAnsiText(Dest: TBufEC; Indent: Integer; Sorted: Boolean);
     procedure WriteTextBuffer(Dest: TBufEC; AnsiText: Boolean; Sorted: Boolean);
     procedure SaveTextFile(FileName: PWideChar; AnsiText: Boolean; Sorted: Boolean);
-    procedure ParseTextBuffer(Buf: TBufEC; const InitialText: WideString; AnsiText: Boolean; PreserveComments: Boolean);
-    procedure LoadFromTextBufferWithEncodingProbe(Buf: TBufEC; PreserveComments: Boolean);
-    procedure LoadFromTextFileWithEncodingProbe(FileName: PWideChar; PreserveComments: Boolean);
+    procedure ParseTextBuffer(
+        Buf: TBufEC;
+        const InitialText: WideString;
+        AnsiText: Boolean;
+        PreserveComments: Boolean;
+        const IncludeDirectory: WideString = ''
+    );
+    procedure LoadFromTextBufferWithEncodingProbe(Buf: TBufEC; PreserveComments: Boolean; const IncludeDirectory: WideString = '');
+    procedure LoadFromTextFileWithEncodingProbe(FileName: PWideChar; PreserveComments: Boolean; const IncludeDirectory: WideString = '');
     procedure MergeFrom(Source: TBlockParEC);
     function ConcatenateValues: WideString;
     procedure LoadFromDecodedBuffer(Buf: TBufEC);
@@ -1279,7 +1285,12 @@ begin
   end;
 end;
 
-procedure TBlockParEC.ParseTextBuffer(Buf: TBufEC; const InitialText: WideString; AnsiText, PreserveComments: Boolean);
+procedure TBlockParEC.ParseTextBuffer(
+    Buf: TBufEC;
+    const InitialText: WideString;
+    AnsiText, PreserveComments: Boolean;
+    const IncludeDirectory: WideString
+);
 var
   Text, Name, Value, Comment: WideString;
   Child: TBlockParEC;
@@ -1327,9 +1338,15 @@ begin
       Child := AddChildBlock(Name);
       Child.UseSortedIndex := ChildSorted;
       Name := TrimWideString(ExtractDelimitedRangeW(Text, 1, PartCount - 1, '{'));
-      Child.ParseTextBuffer(Buf, Name, AnsiText, PreserveComments);
+      Child.ParseTextBuffer(Buf, Name, AnsiText, PreserveComments, IncludeDirectory);
       if Value <> '' then
-        Child.LoadFromTextFileWithEncodingProbe(PWideChar(Value), False);
+      begin
+        // Keep nested includes relative to the caller's explicit root. An empty
+        // root retains the legacy CWD/package lookup for existing callers.
+        if (IncludeDirectory <> '') and (Value[1] <> '/') and (Value[1] <> '\') and (ExtractFileDrive(Value) = '') then
+          Value := IncludeTrailingPathDelimiter(IncludeDirectory) + Value;
+        Child.LoadFromTextFileWithEncodingProbe(PWideChar(Value), False, IncludeDirectory);
+      end;
     end
     else
     begin
@@ -1356,27 +1373,27 @@ begin
   end;
 end;
 
-procedure TBlockParEC.LoadFromTextBufferWithEncodingProbe(Buf: TBufEC; PreserveComments: Boolean);
+procedure TBlockParEC.LoadFromTextBufferWithEncodingProbe(Buf: TBufEC; PreserveComments: Boolean; const IncludeDirectory: WideString);
 begin
   if Buf.DataSize - Buf.Position <= SizeOf(WideChar) then
     Exit;
   if Buf.GetWord <> Utf16LittleEndianBom then
   begin
     Buf.SetPosition(Buf.Position - SizeOf(WideChar));
-    ParseTextBuffer(Buf, '', True, PreserveComments);
+    ParseTextBuffer(Buf, '', True, PreserveComments, IncludeDirectory);
   end
   else
-    ParseTextBuffer(Buf, '', False, PreserveComments);
+    ParseTextBuffer(Buf, '', False, PreserveComments, IncludeDirectory);
 end;
 
-procedure TBlockParEC.LoadFromTextFileWithEncodingProbe(FileName: PWideChar; PreserveComments: Boolean);
+procedure TBlockParEC.LoadFromTextFileWithEncodingProbe(FileName: PWideChar; PreserveComments: Boolean; const IncludeDirectory: WideString);
 var
   Buf: TBufEC;
 begin
   Buf := TBufEC.Create;
   try
     Buf.LoadFromWideFilePath(FileName);
-    LoadFromTextBufferWithEncodingProbe(Buf, PreserveComments);
+    LoadFromTextBufferWithEncodingProbe(Buf, PreserveComments, IncludeDirectory);
   finally
     Buf.Free;
   end;

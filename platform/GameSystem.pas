@@ -20,7 +20,11 @@ function GameTickCount: Cardinal;
 function GameCpuClockMHz: Double;
 function GameOperatingSystemDescription: UnicodeString;
 function GameUserDirectory: UnicodeString;
+function SameGamePathName(const Left, Right: UnicodeString): Boolean;
 function NativeGamePath(const Path: UnicodeString): UnicodeString;
+// Return a backslash-separated game key with on-disk spelling below an absolute,
+// already-resolved native Root. This does not resolve symbolic links.
+function ResolveGameRelativePath(const Root, RelativePath: UnicodeString): UnicodeString;
 procedure SetGameDirectory(const Path: UnicodeString);
 function GameNativeExceptionDetails(E: TObject): UnicodeString;
 
@@ -296,11 +300,56 @@ begin
   Result := Cardinal(GetTickCount64);
 end;
 
+function SameGamePathName(const Left, Right: UnicodeString): Boolean;
+begin
+  // Linguistic Unicode comparison can ignore punctuation (notably with
+  // Android's fpwidestring collation). File names require ordinal comparison
+  // after case folding, so "*", ".", "a-b" and "ab" remain distinct.
+  Result := UnicodeUpperCase(Left) = UnicodeUpperCase(Right);
+end;
+
+function NormalizeGamePathSeparators(const Path: UnicodeString): UnicodeString;
+var
+  Index: Integer;
+begin
+  Result := Path;
+  for Index := 1 to Length(Result) do
+    if (Result[Index] = '\') or (Result[Index] = '/') then
+      Result[Index] := DirectorySeparator;
+end;
+
+function ResolveGamePathName(const Directory, Name: UnicodeString): UnicodeString;
+var
+  Match: UnicodeString;
+  Entry: TUnicodeSearchRec;
+begin
+  Result := Name;
+  // Leave search masks for FindFirst, including their punctuation.
+  if (Pos('*', Name) > 0) or (Pos('?', Name) > 0) then
+    Exit;
+  Match := '';
+  if FindFirst(Directory + '*', faAnyFile, Entry) = 0 then
+    try
+      repeat
+        if Entry.Name = Name then
+          Exit(Entry.Name);
+        if SameGamePathName(Entry.Name, Name) then
+          // Exact spelling wins. Otherwise choose by raw code units, independent
+          // of directory listing order, so metadata and resource loading agree.
+          if (Match = '') or (Entry.Name < Match) then
+            Match := Entry.Name;
+      until FindNext(Entry) <> 0;
+    finally
+      FindClose(Entry);
+    end;
+  if Match <> '' then
+    Result := Match;
+end;
+
 {$IF defined(UNIX) or defined(WASI) or defined(SWITCH)}
 function ResolveGamePathCase(const Path: UnicodeString): UnicodeString;
 var
   Directory, Name: UnicodeString;
-  Entry: TUnicodeSearchRec;
   {$IFDEF SWITCH}
   Volume: UnicodeString;
   {$ENDIF}
@@ -317,40 +366,57 @@ begin
   {$ENDIF}
   if (Path = '') or (FileGetAttr(Path) <> -1) then
     Exit;
-  // Keep exact matches cheap. Resolve each missing component so loose mods
-  // retain Windows filename matching on case-sensitive volumes too. Resolving
-  // the parent also lets new saves/screenshots use an existing mixed-case folder.
+  // Existing resources stay cheap. Correct missing components from the parent
+  // down, also allowing new files to use an existing mixed-case directory.
   Directory := ExtractFileDir(Path);
   Name := ExtractFileName(Path);
+  if (Name = '') or (Directory = Path) then
+    Exit;
   if Directory <> '' then
     Directory := IncludeTrailingPathDelimiter(ResolveGamePathCase(Directory));
   Result := Directory + Name;
-  if (Name = '') or (FileGetAttr(Result) <> -1) then
-    Exit;
-  if FindFirst(Directory + '*', faAnyFile, Entry) = 0 then
-    try
-      repeat
-        if UnicodeSameText(Entry.Name, Name) then
-          Exit(Directory + Entry.Name);
-      until FindNext(Entry) <> 0;
-    finally
-      FindClose(Entry);
-    end;
+  if FileGetAttr(Result) = -1 then
+    Result := Directory + ResolveGamePathName(Directory, Name);
 end;
 {$ENDIF}
 
 function NativeGamePath(const Path: UnicodeString): UnicodeString;
-var
-  Index: Integer;
 begin
   // Package entry names keep their original separators. Only OS paths pass here.
-  Result := Path;
-  for Index := 1 to Length(Result) do
-    if (Result[Index] = '\') or (Result[Index] = '/') then
-      Result[Index] := DirectorySeparator;
+  Result := NormalizeGamePathSeparators(Path);
 {$IF defined(UNIX) or defined(WASI) or defined(SWITCH)}
   Result := ResolveGamePathCase(Result);
 {$ENDIF}
+end;
+
+function ResolveGameRelativePath(const Root, RelativePath: UnicodeString): UnicodeString;
+var
+  Directory, Tail, Name: UnicodeString;
+  Separator: SizeInt;
+begin
+  Directory := IncludeTrailingPathDelimiter(Root);
+  Tail := ExpandFileName(Directory + NormalizeGamePathSeparators(RelativePath));
+  // Normalize dot components below Root. Preserve selections of Root itself or
+  // paths outside it, so a nonempty saved name never becomes an empty key.
+  if (Tail = Directory) or (Copy(Tail, 1, Length(Directory)) <> Directory) then
+    Exit(StringReplace(RelativePath, '/', '\', [rfReplaceAll]));
+  Tail := Copy(Tail, Length(Directory) + 1, MaxInt);
+  Result := '';
+  // Enumerate only below Root, even on case-insensitive filesystems where an OS
+  // existence check would accept the saved spelling without correcting it.
+  while Tail <> '' do
+  begin
+    Separator := Pos(DirectorySeparator, Tail);
+    if Separator = 0 then
+      Separator := Length(Tail) + 1;
+    Name := Copy(Tail, 1, Separator - 1);
+    Delete(Tail, 1, Separator);
+    Name := ResolveGamePathName(Directory, Name);
+    Directory := Directory + Name + DirectorySeparator;
+    if Result <> '' then
+      Result := Result + '\';
+    Result := Result + Name;
+  end;
 end;
 
 function GameUserDirectory: UnicodeString;
