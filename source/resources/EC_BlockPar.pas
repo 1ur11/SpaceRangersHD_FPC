@@ -1285,6 +1285,34 @@ begin
   end;
 end;
 
+function ResolveTextIncludePath(const FileName, IncludeDirectory: WideString): WideString;
+var
+  Drive: WideString;
+begin
+  Result := FileName;
+  // An empty root retains the legacy CWD/package lookup for existing callers.
+  if (IncludeDirectory = '') or (FileName = '') then
+    Exit;
+  if (FileName[1] = '/') or (FileName[1] = '\') then
+    Exit;
+  Drive := ExtractFileDrive(FileName);
+  if Drive <> '' then
+  begin
+    {$IFDEF MSWINDOWS}
+    // C:file is relative to C:'s current directory. Before discovery stopped
+    // changing CWD, that was the mod root when both paths used the same drive.
+    if (Length(Drive) <> 2)
+        or not SameText(Drive, ExtractFileDrive(IncludeDirectory))
+        or ((Length(FileName) > 2) and ((FileName[3] = '/') or (FileName[3] = '\'))) then
+      Exit;
+    Delete(Result, 1, 2);
+    {$ELSE}
+    Exit;
+    {$ENDIF}
+  end;
+  Result := IncludeTrailingPathDelimiter(IncludeDirectory) + Result;
+end;
+
 procedure TBlockParEC.ParseTextBuffer(
     Buf: TBufEC;
     const InitialText: WideString;
@@ -1341,10 +1369,8 @@ begin
       Child.ParseTextBuffer(Buf, Name, AnsiText, PreserveComments, IncludeDirectory);
       if Value <> '' then
       begin
-        // Keep nested includes relative to the caller's explicit root. An empty
-        // root retains the legacy CWD/package lookup for existing callers.
-        if (IncludeDirectory <> '') and (Value[1] <> '/') and (Value[1] <> '\') and (ExtractFileDrive(Value) = '') then
-          Value := IncludeTrailingPathDelimiter(IncludeDirectory) + Value;
+        // Nested includes stay relative to the mod root, not the included file.
+        Value := ResolveTextIncludePath(Value, IncludeDirectory);
         Child.LoadFromTextFileWithEncodingProbe(PWideChar(Value), False, IncludeDirectory);
       end;
     end

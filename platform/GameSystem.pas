@@ -328,7 +328,7 @@ begin
   if (Pos('*', Name) > 0) or (Pos('?', Name) > 0) then
     Exit;
   Match := '';
-  if FindFirst(Directory + '*', faAnyFile, Entry) = 0 then
+  if SysUtils.FindFirst(Directory + '*', faAnyFile, Entry) = 0 then
     try
       repeat
         if Entry.Name = Name then
@@ -338,9 +338,9 @@ begin
           // of directory listing order, so metadata and resource loading agree.
           if (Match = '') or (Entry.Name < Match) then
             Match := Entry.Name;
-      until FindNext(Entry) <> 0;
+      until SysUtils.FindNext(Entry) <> 0;
     finally
-      FindClose(Entry);
+      SysUtils.FindClose(Entry);
     end;
   if Match <> '' then
     Result := Match;
@@ -394,7 +394,8 @@ var
   Directory, Tail, Name: UnicodeString;
   Separator: SizeInt;
 begin
-  Directory := IncludeTrailingPathDelimiter(Root);
+  // Expand both sides consistently: Windows expansion uppercases drive letters.
+  Directory := IncludeTrailingPathDelimiter(ExpandFileName(Root));
   Tail := ExpandFileName(Directory + NormalizeGamePathSeparators(RelativePath));
   // Normalize dot components below Root. Preserve selections of Root itself or
   // paths outside it, so a nonempty saved name never becomes an empty key.
