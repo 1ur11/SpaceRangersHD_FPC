@@ -1543,7 +1543,7 @@ begin
       ReplaceTextToken(DialogText, '<Planet>', GetPlayer.CurrentPlanet.Name, TextHighlightColorTag);
       ReplaceTextToken(DialogText, '<Player>', GetPlayer.Name, TextHighlightColorTag);
       ClearDialogChoices;
-      if (RobotInterface <> nil) and (RobotInterface.Support() = 0) then
+      if (RobotInterface = nil) or (RobotInterface.Support() = 0) then
         AddChoice(LocalizedColorText('FormGov.I_QuestAccept'), MapId, ShowPlanetBattleSupport)
       else
         AddChoice(LocalizedColorText('FormGov.I_QuestAccept'), 0, ScriptDialogBlockCallback);

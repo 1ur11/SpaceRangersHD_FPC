@@ -202,6 +202,8 @@ procedure InitializeRobotRuntime;
 
 procedure FinalizeRobotRuntime;
 
+function CheckRobotRuntimeAvailable: Boolean;
+
 procedure RobotPlaySound(Name: PWideChar); stdcall;
 
 function RobotCreateSound(Name: PWideChar; Group: Integer; Looping: Integer): TSoundBufferControl; stdcall;
@@ -288,16 +290,11 @@ begin
 end;
 
 procedure InitializeRobotRuntime;
-var
-  GetInterface: TGetRobotInterface;
-  OverrideName: WideString;
-  Callbacks: PRobotCallbacks;
 begin
   FinalizeRobotRuntime;
   if IsInstallFeatureEnabled('Robot') then
   begin
-    Callbacks := @RobotCallbacks;
-    FillChar(Callbacks^, SizeOf(TRobotCallbacks), 0);
+    FillChar(RobotCallbacks, SizeOf(RobotCallbacks), 0);
     RobotCallbacks.PlaySound := RobotPlaySound;
     RobotCallbacks.CreateSound := RobotCreateSound;
     RobotCallbacks.FreeSound := RobotFreeSound;
@@ -314,35 +311,13 @@ begin
     RobotCallbacks.ReleaseTextures := RobotReleaseTextures;
     RobotCallbacks.GetMusicVolume := RobotGetMusicVolume;
     RobotCallbacks.SetMusicVolume := RobotSetMusicVolume;
-{$IF Defined(MSWINDOWS) and Defined(CPU386)}
-    if DirectXVersion >= $90000 then
-    begin
-      if LanguageDataConfig.GetBlock('RobotsMap').CountParams('MatrixOverride') > 0 then
-      begin
-        OverrideName := LanguageDataConfig.GetBlock('RobotsMap').GetParam('MatrixOverride');
-        RobotModule := LoadLibrary(UTF8Encode(OverrideName));
-      end
-      else
-        RobotModule := LoadLibrary('MatrixGame.dll');
-      if RobotModule <> 0 then
-      begin
-        GetInterface := GetProcAddress(RobotModule, 'GetRobotInterface');
-        if GetInterface() = nil then
-        begin
-          FreeLibrary(RobotModule);
-          RobotModule := 0;
-        end
-        else
-        begin
-          RobotInterface := GetInterface();
-          RobotInterface.Initialize(@RobotCallbacks);
-          AppendLogLineThreadSafe('Load MatrixGame.dll .... ok');
-          AppendLogLineThreadSafe(AnsiString('Robot.Support()=' + IntToWideString(RobotInterface.Support())));
-        end;
-      end;
-    end;
-{$ENDIF}
   end;
+end;
+
+function CheckRobotRuntimeAvailable: Boolean;
+begin
+  // Allow battle requests: FRun returns victory while no engine is integrated.
+  Result := True;
 end;
 
 procedure FinalizeRobotRuntime;
@@ -730,6 +705,12 @@ var
   CursorState: TCursorStateGI;
   Memory: TMemoryStatusEx;
 begin
+  // Until a replacement robot engine is integrated, complete battles as victories.
+  if RobotInterface = nil then
+  begin
+    FillChar(RobotBattleStatistics, SizeOf(RobotBattleStatistics), 0);
+    Exit(3);
+  end;
   if MusicEnabled and MusicManager.HasSelectedMusic then
     MusicManager.RequestFadeOut;
   AppendLogLineThreadSafe('Preparing to start planetary battle');

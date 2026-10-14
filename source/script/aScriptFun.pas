@@ -6054,7 +6054,7 @@ end;
 
 procedure SF_RobotSupport(av: array of TVarEC; code: TCodeEC);
 begin
-  av[0].AsInteger := Ord((RobotInterface <> nil) and (RobotInterface.Support() = 0));
+  av[0].AsInteger := Ord((RobotInterface = nil) or (RobotInterface.Support() = 0));
 end;
 
 procedure SF_StarShips(av: array of TVarEC; code: TCodeEC);

@@ -278,7 +278,7 @@ var
 begin
   if IsInstallFeatureEnabled('Robot') then
   begin
-    RobotAvailability := 1;
+    RobotAvailability := 0;
     if RobotInterface <> nil then
       RobotAvailability := RobotInterface.Support;
   end
