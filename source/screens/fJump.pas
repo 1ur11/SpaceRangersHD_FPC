@@ -312,7 +312,8 @@ begin
     if Progress > 0.99 then
       Progress := 1;
     LoadPanel.SetProgress(Progress);
-    if (NoPendingLoads or not CacheLoader.IsRunning) and (Progress >= 1) then
+    // Asset readiness, rather than the cosmetic progress ramp, gates fast loading.
+    if (NoPendingLoads or not CacheLoader.IsRunning) and (FasterLoading or (Progress >= 1)) then
     begin
       if TransitionTimer <> nil then
       begin

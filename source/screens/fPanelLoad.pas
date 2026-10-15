@@ -278,7 +278,7 @@ end;
 
 procedure TfPanelLoad.StartOpeningShutters;
 begin
-  if AnimChangeForm and HasShutters then
+  if not FasterLoading and AnimChangeForm and HasShutters then
   begin
     Show;
     if ShutterTimer <> nil then
@@ -295,7 +295,7 @@ end;
 
 procedure TfPanelLoad.StartClosingShutters;
 begin
-  if AnimChangeForm and HasShutters then
+  if not FasterLoading and AnimChangeForm and HasShutters then
   begin
     Show;
     SetProgress(0);

@@ -352,6 +352,9 @@ begin
       AddOptionChoice(0, ExtractDelimitedPartW(Language, 0, ','), True, False);
     end;
   end;
+  AddOptionLabel('FasterLoading', OptionCaption('FasterLoading', 'Faster loading', 'Ускоренная загрузка'), False);
+  AddOptionChoice(1, LocalizedText('FormCfgSettings.Yes'), FasterLoading, False);
+  AddOptionChoice(0, LocalizedText('FormCfgSettings.No'), not FasterLoading, False);
   AddOptionLabel('MultiThread', LocalizedText('FormCfgSettings.MultiThread'), True);
   AddOptionChoice(1, LocalizedText('FormCfgSettings.Yes'), MultiThreadEnabled, False);
   AddOptionChoice(0, LocalizedText('FormCfgSettings.No'), not MultiThreadEnabled, False);
@@ -1942,6 +1945,8 @@ begin
       ReloadModsRequested := True;
     end;
   end;
+  FasterLoading := Boolean(GetOptionValue('FasterLoading'));
+  UserSettingsConfig.SetOrAddParam('FasterLoading', BoolToWideString(FasterLoading));
   MultiThreadEnabled := Boolean(GetOptionValue('MultiThread'));
   UserSettingsConfig.SetOrAddParam('MultiThread', BoolToWideString(MultiThreadEnabled));
   DefaultOrder := GetOptionValue('DefaultOrder');

@@ -274,7 +274,10 @@ begin
   end;
   if DisplayedProgress < TargetProgress then
   begin
-    DisplayedProgress := Min(0.005 + DisplayedProgress, TargetProgress);
+    if FasterLoading then
+      DisplayedProgress := TargetProgress
+    else
+      DisplayedProgress := Min(0.005 + DisplayedProgress, TargetProgress);
     LoadPanel.SetProgress(DisplayedProgress);
   end;
   if LoadingComplete and (DisplayedProgress >= 0.999) then

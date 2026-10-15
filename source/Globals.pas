@@ -920,6 +920,9 @@ begin
     QuestStyleIndex := ExtractDigitsToIntW(UserSettingsConfig.GetParamByPathOrMarker('PQuestStyle'));
   if UserSettingsConfig.CountParamsByPath('PQuestAnim') > 0 then
     QuestPageAnimationEnabled := ParseEnabledNameGI(UserSettingsConfig.GetParamByPathOrMarker('PQuestAnim'));
+  FasterLoading := True;
+  if UserSettingsConfig.CountParamsByPath('FasterLoading') > 0 then
+    FasterLoading := ParseEnabledNameGI(UserSettingsConfig.GetParamByPathOrMarker('FasterLoading'));
   if UserSettingsConfig.CountParamsByPath('DefaultOrder') > 0 then
     DefaultOrder := ExtractDigitsToIntW(UserSettingsConfig.GetParamByPathOrMarker('DefaultOrder'));
   if UserSettingsConfig.CountParamsByPath('RightClickOnShip') > 0 then

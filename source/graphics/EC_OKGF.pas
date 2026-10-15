@@ -61,8 +61,9 @@ begin
   // SourceSize - 8 bytes for the stream: a larger result is left uncompressed.
   if SourceSize < 16 then
     Exit;
+  // Level 4 keeps saves compact without level 9's CPU cost.
   if Mode = 0 then
-    Level := Z_BEST_COMPRESSION
+    Level := 4
   else
     Level := Z_BEST_SPEED;
   FillChar(Stream, SizeOf(Stream), 0);

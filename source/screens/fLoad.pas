@@ -430,7 +430,11 @@ begin
   end;
   if DisplayedProgress < LoadProgress then
   begin
-    DisplayedProgress := Min(0.05 + DisplayedProgress, LoadProgress);
+    // Follow real loading progress without waiting for the cosmetic ramp.
+    if FasterLoading then
+      DisplayedProgress := LoadProgress
+    else
+      DisplayedProgress := Min(0.05 + DisplayedProgress, LoadProgress);
     LoadPanel.SetProgress(DisplayedProgress);
   end;
   if not LoadingFinished then

@@ -118,16 +118,16 @@ are omitted.
   offsets avoid rescanning compressed chains during sequential reads; random/interleaved
   access still seeks correctly. Failed seeks and incomplete block headers return a read
   failure. This cache does not alter package or save formats.
-- **Compression formats.** `source/graphics/EC_OKGF.pas` implements ZL01 buffer
-  compression and ZL02 package-block decoding with Pascal zlib. Original headers,
-  compression levels, size limits, decoded-length checks and the header-only size query
-  are retained.
+- **Compression.** Pascal zlib preserves compatibility with original saves and
+  packages. Level 4 compression makes saving faster with slightly larger files.
 - **Language settings.** `source/screens/fCfgSettings.pas` falls back to a language code
   when its install file or display name is missing or blank. An empty language list
   preserves the selected language; temporary configurations are released on errors.
 
 ## Drawing, presentation and desktop input
 
+- **Faster loading.** Skips artificial progress-bar delays and loading-screen
+  shutters. Enabled by default; can be disabled in game settings.
 - **Software raster operations.** `source/graphics/GR_GraphBuf.pas`,
   `source/graphics/GR_gi.pas` and `source/resources/EC_CacheFont.pas` replace assembly
   while retaining lookup-table rounding, forward overlapping copies, RGB565/RGB555

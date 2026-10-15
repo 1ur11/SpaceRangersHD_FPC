@@ -91,6 +91,8 @@ var
 
   QuestPageAnimationEnabled: Boolean = True;
 
+  FasterLoading: Boolean = True;
+
   DefaultOrder: Integer = 0;
 
   RightClickOnShip: Integer = 0;
