@@ -153,6 +153,11 @@ var
   PendingActivation: Cardinal;
   ArcadeControls: Cardinal;
 
+{$IFDEF ANDROID}
+var
+  AndroidKeyboardSession: Boolean;
+{$ENDIF}
+
 {$IFDEF SWITCH}
 var
   HandheldMode: Boolean;
@@ -259,9 +264,8 @@ begin
   SDL_SetHint('SDL_IOS_ORIENTATIONS', 'LandscapeLeft LandscapeRight');
   SDL_SetHint('SDL_RENDER_LOGICAL_SIZE_MODE', 'letterbox');
   SDL_SetHint('SDL_ANDROID_TRAP_BACK_BUTTON', '1');
-  // Android's keyboard is opened explicitly by Controls > Keyboard. Keep this
-  // policy in force during video initialization, window creation and resume;
-  // restoring the default permits SDL to request an IME asynchronously.
+  // Accept hardware text without opening the IME at startup. Controls > Keyboard
+  // enables SDL keyboard management for the lifetime of that explicit session.
   SDL_SetHint('SDL_ENABLE_SCREEN_KEYBOARD', '0');
 {$ENDIF}
   CheckGameSDL(SDL_InitSubSystem(SDL_INIT_VIDEO or SDL_INIT_TIMER), 'SDL_InitSubSystem(video/timer)');
@@ -688,13 +692,16 @@ begin
         end;
         if GameSDLRenderer = nil then
           RaiseGameSDLError('SDL_CreateRenderer(software, target textures); accelerated attempt: ' + ErrorText + '; software attempt');
-        // Enable UTF-8 commits without calling SDL_StartTextInput on Android: that
-        // API also requests the soft keyboard. The Java overlay opens it directly.
 {$IFDEF SWITCH}
         // Switch SDL suppresses touch/mouse polling while text input is active.
         // The right-stick button opens the software keyboard explicitly.
         SDL_StopTextInput;
 {$ELSE}
+  {$IFDEF ANDROID}
+        AndroidKeyboardSession := False;
+        SDL_SetHint('SDL_ENABLE_SCREEN_KEYBOARD', '0');
+        SDL_StartTextInput;
+  {$ELSE}
         if MobileWindow then
         begin
           SDL_EventState(SDL_TEXTINPUT, SDL_ENABLE);
@@ -702,6 +709,7 @@ begin
         end
         else
           SDL_StartTextInput;
+  {$ENDIF}
 {$ENDIF}
       except
         if ExceptObject is Exception then
@@ -790,6 +798,9 @@ begin
     // Clear ownership before native teardown, which itself may raise.
     GameSDLRenderer := nil;
     GameSDLWindow := nil;
+{$IFDEF ANDROID}
+    AndroidKeyboardSession := False;
+{$ENDIF}
     TextInput := '';
     TextPosition := 0;
     CancelGamePointerInput;
@@ -922,6 +933,9 @@ var
   Point: TPoint;
   Phase: TTouchPhase;
   Presentation: TGamePresentation;
+{$IFDEF ANDROID}
+  InputRect: TSDL_Rect;
+{$ENDIF}
 
   procedure CancelInput;
   begin
@@ -932,6 +946,19 @@ var
   end;
 
 begin
+{$IFDEF ANDROID}
+  if AndroidKeyboardSession and (SDL_IsTextInputActive = 0) and (SDL_EventState(SDL_TEXTEDITING, SDL_QUERY) = SDL_DISABLE) then
+  begin
+    // SDL's UI-thread Back handler disables text and editing separately. Wait
+    // for both, so it cannot disable editing after we restart hardware input.
+    // At this point SDL has also requested editor cleanup.
+    // Resume hardware text without showing the IME; the next button press starts
+    // a new SDL-managed keyboard session with a fresh Android input connection.
+    AndroidKeyboardSession := False;
+    SDL_SetHint('SDL_ENABLE_SCREEN_KEYBOARD', '0');
+    SDL_StartTextInput;
+  end;
+{$ENDIF}
 {$IFDEF SWITCH}
   SwitchPollInput(GameSDLWindow);
   if HandheldMode <> (SwitchHandheld <> 0) then
@@ -989,6 +1016,29 @@ begin
       Break;
     // JNI overlay messages are queued by the native Android launcher. Check
     // their codes before our registered event (which may equal SDL_USEREVENT).
+{$IFDEF ANDROID}
+    if (Event.Kind = SDL_USEREVENT) and (Event.User.Code = $53524B42) then
+    begin
+      if AppInBackground or (GameSDLWindow = nil) then
+        Continue;
+      if AndroidKeyboardSession and (SDL_IsTextInputActive <> 0) then
+      begin
+        // Use the same editor cleanup and hardware-input recovery as Back.
+        SDL_StopTextInput;
+        Continue;
+      end;
+      InputRect := Default(TSDL_Rect);
+      InputRect.W := 400;
+      InputRect.H := 40;
+      SDL_SetTextInputRect(@InputRect);
+      // Leave keyboard management enabled until Back or the next button press
+      // stops input and releases the hidden Java editor and its old contents.
+      SDL_SetHint('SDL_ENABLE_SCREEN_KEYBOARD', '1');
+      SDL_StartTextInput;
+      AndroidKeyboardSession := True;
+      Continue;
+    end;
+{$ENDIF}
     if (Event.Kind = SDL_USEREVENT) and (Event.User.Code = $53524143) then
     begin
       if AppInBackground

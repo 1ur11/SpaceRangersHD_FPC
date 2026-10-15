@@ -53,6 +53,8 @@ const
   SDL_KEYUP = $301;
   SDL_TEXTEDITING = $302;
   SDL_TEXTINPUT = $303;
+  SDL_QUERY = -1;
+  SDL_DISABLE = 0;
   SDL_ENABLE = 1;
   SDL_MOUSEMOTION = $400;
   SDL_MOUSEBUTTONDOWN = $401;
@@ -302,6 +304,8 @@ function SDL_RegisterEvents(Count: Integer): Cardinal; cdecl; external SDL2Libra
 function SDL_EventState(Kind: Cardinal; State: Integer): Byte; cdecl; external SDL2Library;
 procedure SDL_StartTextInput; cdecl; external SDL2Library;
 procedure SDL_StopTextInput; cdecl; external SDL2Library;
+function SDL_IsTextInputActive: Integer; cdecl; external SDL2Library;
+procedure SDL_SetTextInputRect(Rect: PSDL_Rect); cdecl; external SDL2Library;
 function SDL_GetKeyboardState(Count: PInteger): PByte; cdecl; external SDL2Library;
 function SDL_GetModState: Integer; cdecl; external SDL2Library;
 function SDL_GetMouseState(X, Y: PInteger): Cardinal; cdecl; external SDL2Library;

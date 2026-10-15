@@ -136,6 +136,13 @@ Java_io_github_pakompom_spacerangershd_GameActivity_nativeScroll(JNIEnv *, jclas
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_io_github_pakompom_spacerangershd_GameActivity_nativeToggleKeyboard(JNIEnv *, jclass) {
+    // The game thread toggles the complete SDL text-input session, including
+    // character events and the Android editor's show/hide lifecycle.
+    post_input_event(0x53524b42); // SRKB: toggle the on-screen keyboard.
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_io_github_pakompom_spacerangershd_GameActivity_nativeDensityChanged(JNIEnv *, jclass,
                                                                          jint densityDpi) {
     // SDL2 hints are not thread-safe. The game thread applies this update.

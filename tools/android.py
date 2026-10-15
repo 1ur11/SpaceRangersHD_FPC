@@ -42,6 +42,7 @@ LIBRARIES = {
         "Java_io_github_pakompom_spacerangershd_GameActivity_nativeCancelTouch",
         "Java_io_github_pakompom_spacerangershd_GameActivity_nativeInputMode",
         "Java_io_github_pakompom_spacerangershd_GameActivity_nativeScroll",
+        "Java_io_github_pakompom_spacerangershd_GameActivity_nativeToggleKeyboard",
         "Java_io_github_pakompom_spacerangershd_GameActivity_nativeDensityChanged",
         "Java_io_github_pakompom_spacerangershd_GameActivity_nativeArcadeInput",
     },

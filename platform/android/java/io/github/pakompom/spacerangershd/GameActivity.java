@@ -21,6 +21,7 @@ public final class GameActivity extends SDLActivity {
     static native void nativeCancelTouch();
     private static native void nativeInputMode(int flags);
     private static native void nativeScroll(int direction);
+    private static native void nativeToggleKeyboard();
     private static native void nativeDensityChanged(int densityDpi);
     static native void nativeArcadeInput(int controls, int axes, int buttons);
     private final HashSet<Integer> heldKeys = new HashSet<>();
@@ -186,8 +187,7 @@ public final class GameActivity extends SDLActivity {
             mouse.setText(textContext.getString(right ? R.string.controls_right_click_on
                                                       : R.string.controls_right_click));
         });
-        button(row, R.string.controls_keyboard)
-            .setOnClickListener(v -> showTextInput(0, 0, 400, 40));
+        button(row, R.string.controls_keyboard).setOnClickListener(v -> nativeToggleKeyboard());
         row = row();
         Button inspect = button(row, R.string.controls_hover);
         if (hover)
