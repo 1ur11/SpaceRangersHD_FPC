@@ -58,6 +58,7 @@ function GetGameDisplayMetrics: TGameDisplayMetrics;
 function GetGamePresentationRect(Width, Height: Integer): TRect;
 function GetGameMobileUiScale(DpPerSourcePixel: Single = 1): Single;
 procedure GetGameAutomaticLayoutSize(MinWidth, MinHeight: Integer; out Width, Height: Integer);
+function GameWindowCenteredPosition: Integer;
 procedure OpenGameWindow(Width, Height: Integer; Windowed, VSync: Boolean);
 procedure CloseGameWindow;
 // Best-effort state snapshot: unavailable SDL queries are diagnostic warnings.
@@ -93,6 +94,8 @@ var
   GameSDLRenderer: PSDL_Renderer;
   GameTextureGeneration, GameTargetGeneration: LongInt;
   GameDisplayGeneration: LongInt = 1;
+  // From --display=N; every display query uses it, so an unknown index falls back to 0.
+  GameDisplayIndex: Integer = 0;
   GamePresentedFrames: QWord;
 
 implementation
@@ -269,6 +272,11 @@ begin
   SDL_SetHint('SDL_ENABLE_SCREEN_KEYBOARD', '0');
 {$ENDIF}
   CheckGameSDL(SDL_InitSubSystem(SDL_INIT_VIDEO or SDL_INIT_TIMER), 'SDL_InitSubSystem(video/timer)');
+  if (GameDisplayIndex < 0) or (GameDisplayIndex >= SDL_GetNumVideoDisplays) then
+  begin
+    LogGameMessage(gllWarning, 'video', 'Display ' + IntToStr(GameDisplayIndex) + ' is not available; using display 0');
+    GameDisplayIndex := 0;
+  end;
   // These desktop backends provide real global coordinates. Other backends
   // (notably Wayland) may return cached window coordinates from the same API.
   // SDL spells its Android backend "Android", unlike the lower-case desktop
@@ -450,12 +458,13 @@ begin
   else
   begin
     Mode := Default(TSDL_DisplayMode);
-    if SDL_GetCurrentDisplayMode(0, Mode) < 0 then
+    if SDL_GetCurrentDisplayMode(GameDisplayIndex, Mode) < 0 then
     begin
       Mode := Default(TSDL_DisplayMode);
       // Zero dimensions select the caller's minimum layout.
       if not DisplayModeWarningLogged then
-        LogGameMessage(gllWarning, 'video', 'SDL_GetCurrentDisplayMode(display=0): ' + GameSDLErrorMessage);
+        LogGameMessage(gllWarning, 'video',
+            'SDL_GetCurrentDisplayMode(display=' + IntToStr(GameDisplayIndex) + '): ' + GameSDLErrorMessage);
       DisplayModeWarningLogged := True;
     end
     else
@@ -626,6 +635,11 @@ begin
   LastVideoLog.ModeFlags := ModeFlags;
 end;
 
+function GameWindowCenteredPosition: Integer;
+begin
+  Result := Integer(SDL_WINDOWPOS_CENTERED or Cardinal(GameDisplayIndex));
+end;
+
 procedure OpenGameWindow(Width, Height: Integer; Windowed, VSync: Boolean);
 var
   Flags: Cardinal;
@@ -674,7 +688,8 @@ begin
         if BrowserWindow or FullscreenOnlyWindow then
           Flags := Flags or SDL_WINDOW_RESIZABLE;
         LogGameVideo(Format('SDL_CreateWindow(size=%dx%d points, flags=$%s)', [WindowSize.X, WindowSize.Y, IntToHex(Flags, 8)]));
-        GameSDLWindow := SDL_CreateWindow('Rangers', SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WindowSize.X, WindowSize.Y, Flags);
+        GameSDLWindow := SDL_CreateWindow('Rangers', GameWindowCenteredPosition, GameWindowCenteredPosition, WindowSize.X, WindowSize.Y,
+            Flags);
         if GameSDLWindow = nil then
           RaiseGameSDLError(Format('SDL_CreateWindow(%dx%d points, flags=$%s)', [WindowSize.X, WindowSize.Y, IntToHex(Flags, 8)]));
         Flags := SDL_RENDERER_ACCELERATED or SDL_RENDERER_TARGETTEXTURE;

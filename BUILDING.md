@@ -36,6 +36,8 @@ Compiler jobs are capped at six and the host CPU count; the limit does not adapt
 - `--release`: `-O4` instead of the default `-O2`.
 - `--lto`: enable LLVM link-time optimization (except Switch).
 - `--rebuild`: rebuild all game units and native code (build script only).
+- `--display=N`: open the game window on display `N` (run script and game only; default 0,
+  unknown displays fall back to 0).
 
 Use matching `--target`, `--release` and `--lto` options for build and run.
 Configurations are `debug` and `release`, with a `-lto` suffix when

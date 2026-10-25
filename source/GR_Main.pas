@@ -3832,8 +3832,8 @@ begin
     end
     else
     begin
-      Bounds.Left := SDL_WINDOWPOS_CENTERED;
-      Bounds.Top := SDL_WINDOWPOS_CENTERED;
+      Bounds.Left := GameWindowCenteredPosition;
+      Bounds.Top := GameWindowCenteredPosition;
     end;
     Bounds.Right := Bounds.Left + Width;
     Bounds.Bottom := Bounds.Top + Height;

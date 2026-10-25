@@ -239,6 +239,7 @@ function SDL_SetWindowFullscreen(Window: PSDL_Window; Flags: Cardinal): Integer;
 procedure SDL_RaiseWindow(Window: PSDL_Window); cdecl; external SDL2Library;
 procedure SDL_SetWindowGrab(Window: PSDL_Window; Grabbed: Integer); cdecl; external SDL2Library;
 procedure SDL_MinimizeWindow(Window: PSDL_Window); cdecl; external SDL2Library;
+function SDL_GetNumVideoDisplays: Integer; cdecl; external SDL2Library;
 function SDL_GetNumDisplayModes(Display: Integer): Integer; cdecl; external SDL2Library;
 function SDL_GetDisplayUsableBounds(Display: Integer; out Bounds: TSDL_Rect): Integer; cdecl; external SDL2Library;
 function SDL_GetDisplayDPI(Display: Integer; Diagonal, Horizontal, Vertical: PSingle): Integer; cdecl; external SDL2Library;

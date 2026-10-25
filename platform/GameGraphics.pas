@@ -1441,7 +1441,7 @@ var
   Scale: Double;
 begin
   Value := Default(TSDL_DisplayMode);
-  Result := SDL_GetCurrentDisplayMode(0, Value);
+  Result := SDL_GetCurrentDisplayMode(GameDisplayIndex, Value);
   if GameWindowIsFullscreenOnly then
   begin
     GetGameAutomaticLayoutSize(1024, 768, Width, Height);
@@ -1460,7 +1460,7 @@ begin
     Exit;
   // Browser display modes describe the whole screen in CSS pixels. Auto must
   // fit the actual viewport; multiplying it by Retina density shrinks the UI.
-  if SDL_GetDisplayUsableBounds(0, Bounds) = 0 then
+  if SDL_GetDisplayUsableBounds(GameDisplayIndex, Bounds) = 0 then
     if (Bounds.W > 0) and (Bounds.H > 0) then
     begin
       Value := Default(TSDL_DisplayMode);
@@ -1544,17 +1544,17 @@ begin
   Density := 1;
   if not Mobile then
   begin
-    if SDL_GetDisplayDPI(0, @DPI, nil, nil) = 0 then
+    if SDL_GetDisplayDPI(GameDisplayIndex, @DPI, nil, nil) = 0 then
       // The browser SDL driver reports 96 DPI times devicePixelRatio.
       if (DPI > 0) and not IsNan(DPI) and not IsInfinite(DPI) then
         Density := DPI / 96.0;
-    if SDL_GetDisplayUsableBounds(0, Bounds) = 0 then
+    if SDL_GetDisplayUsableBounds(GameDisplayIndex, Bounds) = 0 then
     begin
       Add(Bounds.W, Bounds.H);
       Add(Round(Bounds.W * Density), Round(Bounds.H * Density));
     end;
   end;
-  if SDL_GetCurrentDisplayMode(0, Mode) = 0 then
+  if SDL_GetCurrentDisplayMode(GameDisplayIndex, Mode) = 0 then
   begin
     Add(Mode.W, Mode.H);
     Add(Round(Mode.W * Density), Round(Mode.H * Density));
@@ -1588,7 +1588,7 @@ begin
     BuildRenderModes;
     Exit(Length(RenderModes));
   end;
-  Result := Max(0, SDL_GetNumDisplayModes(0));
+  Result := Max(0, SDL_GetNumDisplayModes(GameDisplayIndex));
 end;
 function TSDLGraphics.EnumAdapterModes(Adapter, Format, Mode: Cardinal; out DisplayMode): LongInt;
 var
@@ -1603,7 +1603,7 @@ begin
     Result := 0;
   end
   else
-    Result := SDL_GetDisplayMode(0, Mode, Value);
+    Result := SDL_GetDisplayMode(GameDisplayIndex, Mode, Value);
   if Result = 0 then
   begin
     Data[0] := Value.W;

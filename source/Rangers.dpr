@@ -504,6 +504,9 @@ begin
   for ArgumentIndex := 1 to ParamCount do
     if Copy(ParamStr(ArgumentIndex), 1, 11) = '--game-dir=' then
       SetGameDirectory(UTF8Decode(Copy(ParamStr(ArgumentIndex), 12, MaxInt)));
+  for ArgumentIndex := 1 to ParamCount do
+    if Copy(ParamStr(ArgumentIndex), 1, 10) = '--display=' then
+      GameDisplayIndex := StrToIntDef(Copy(ParamStr(ArgumentIndex), 11, MaxInt), -1);
   Randomize;
   Attempt := 0;
   repeat
